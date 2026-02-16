@@ -1,0 +1,130 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+
+export async function POST(req: NextRequest) {
+    try {
+        const body = await req.json();
+        console.log("Verify API Request Body:", body);
+        const { qrCodeString } = body;
+
+        if (!qrCodeString) {
+            return NextResponse.json({ success: false, message: 'No QR code provided' }, { status: 400 });
+        }
+
+        // 1. Fetch Order
+        let query = supabase.from('orders').select('*');
+
+        // specific check for UUID format to allow manual entry of Order ID
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCodeString);
+        // Check for Short ID (6 chars)
+        const isShortID = /^[A-Z0-9]{6}$/i.test(qrCodeString);
+
+        if (isUUID) {
+            query = query.eq('id', qrCodeString);
+        } else if (isShortID) {
+            // OPTION 3 (Safest): Fetch recent orders and filter in JS 
+            // This avoids "uuid ~~* unknown" errors completely with Supabase/Postgres
+            const { data: recentOrders, error: recentError } = await supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (recentError) {
+                console.error("Error fetching recent orders:", recentError);
+            }
+
+            // Find match in JS
+            const match = recentOrders?.find((o: any) =>
+                (o.readable_id && o.readable_id.toUpperCase() === qrCodeString.toUpperCase()) ||
+                (o.id && o.id.toUpperCase().startsWith(qrCodeString.toUpperCase()))
+            );
+
+            if (match) {
+                // Return this as the single result
+                // We reconstruct the query to fetch this exact ID to maintain downstream logic consistency
+                query = supabase.from('orders').select('*').eq('id', match.id);
+            } else {
+                // No match found in recent orders
+                return NextResponse.json({ success: false, message: 'Order not found (or expired)' }, { status: 404 });
+            }
+        } else {
+            query = query.eq('qr_code_string', qrCodeString);
+        }
+
+        const { data, error } = await query;
+        const order: any = (data && data.length > 0) ? data[0] : null;
+
+        if (error || !order) {
+            console.error("Verify API Error:", error);
+            console.log("Searching for QR:", qrCodeString);
+            return NextResponse.json({
+                success: false,
+                message: error ? `DB Error: ${error.message}` : 'Invalid QR Code: Order not found'
+            }, { status: 404 });
+        }
+
+        if (order.status === 'verified') {
+            return NextResponse.json({
+                success: false,
+                message: 'ALREADY USED: This pass has already been scanned at exit.'
+            }, { status: 400 });
+        }
+
+        if (order.status !== 'paid') {
+            return NextResponse.json({
+                success: false,
+                message: 'PAYMENT PENDING: This order has not been paid yet.'
+            }, { status: 400 });
+        }
+
+        // 2. Mark as verified
+        const { error: updateError } = await supabase
+            .from('orders')
+            .update({ status: 'verified' })
+            .eq('id', order.id);
+
+        if (updateError) {
+            throw updateError;
+        }
+
+        // Parse items if it's a string (sometimes Supabase returns JSONB as object, sometimes string depending on driver)
+        let items = order.items;
+        if (typeof items === 'string') {
+            try {
+                items = JSON.parse(items);
+            } catch (e) {
+                console.error("Failed to parse items JSON:", e);
+                items = [];
+            }
+        }
+
+        const itemCount = Array.isArray(items) ? items.length : 0;
+
+        // Calculate Total Expected Weight (sum of item.weight * item.quantity)
+        // If weight is missing, we assume 0 or handle it gracefully.
+        // For existing orders without weight, this might return 0 which is fine.
+        const totalExpectedWeight = Array.isArray(items)
+            ? items.reduce((sum: number, item: any) => sum + ((item.weight || 0) * (item.quantity || 1)), 0)
+            : 0;
+
+        return NextResponse.json({
+            success: true,
+            message: 'Access Granted',
+            order: {
+                id: order.id,
+                totalAmount: order.total_amount,
+                totalExpectedWeight: totalExpectedWeight,
+                items: order.items // Return full item details
+            }
+        });
+
+    } catch (error: any) {
+        console.error("Verification API Critical Error:", error);
+        return NextResponse.json({
+            success: false,
+            error: 'Verification failed',
+            details: error instanceof Error ? error.message : String(error)
+        }, { status: 500 });
+    }
+}
