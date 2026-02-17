@@ -88,9 +88,17 @@ export default function AdminDashboard() {
     };
 
     const handleScanSuccess = (decodedText: string) => {
-        setNewProduct(prev => ({ ...prev, barcode: decodedText }));
-        setShowScanner(false);
-        toast.success('Barcode scanned!');
+        // Check if product already exists
+        const existingProduct = products.find(p => p.barcode === decodedText);
+
+        if (existingProduct) {
+            toast.error(`Product "${existingProduct.name}" already exists!`, { duration: 4000 });
+            // Optional: Highlight or scroll to existing product
+        } else {
+            setNewProduct(prev => ({ ...prev, barcode: decodedText }));
+            setShowScanner(false);
+            toast.success('Barcode scanned!');
+        }
     };
 
     return (
