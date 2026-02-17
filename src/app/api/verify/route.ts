@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
                 .from('orders')
                 .update({
                     status: 'verified',
-                    payment_status: 'paid', // Ensure we track it was paid
+                    // payment_status: 'paid', // unnecessary column removed
                     payment_method: 'CASH'
                 })
                 .eq('id', order.id);

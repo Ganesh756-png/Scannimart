@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import QRScanner from '@/components/QRScanner';
 import { toast, Toaster } from 'react-hot-toast';
 
@@ -12,6 +12,9 @@ export default function SecurityScan() {
     const [orderDetails, setOrderDetails] = useState<any>(null);
     const [verifiedItems, setVerifiedItems] = useState<Set<string>>(new Set());
     const [measuredWeight, setMeasuredWeight] = useState<string>('');
+
+    // Lock to prevent multiple scans
+    const isProcessing = useRef(false);
 
     // Handle Scan Logic based on state
     const handleScan = (decodedText: string) => {
@@ -25,6 +28,9 @@ export default function SecurityScan() {
     };
 
     const handleOrderScan = async (qrCodeString: string) => {
+        if (isProcessing.current) return;
+        isProcessing.current = true;
+
         setVerificationStatus('loading');
         setMessage('Verifying...');
         setOrderDetails(null);
@@ -46,6 +52,7 @@ export default function SecurityScan() {
                 setVerificationStatus('idle'); // Keep background idle/loading
                 setMessage('⚠️ Collecting Payment');
                 toast('💰 Collect Cash: ₹' + data.order.totalAmount, { icon: '💰' });
+                isProcessing.current = false; // Release lock so they can cancel/retry or pay
                 return;
             }
 
@@ -54,15 +61,26 @@ export default function SecurityScan() {
                 setMessage('✅ ACCESS GRANTED');
                 setOrderDetails(data.order);
                 toast.success('Order Verified! Now scan items to check contents.');
+                // DO NOT release lock here if we want to stop re-scans of the same exit pass immediately.
+                // The logical flow is: Scan Pass -> Success -> Verify Items -> Next Customer.
+                // If we release lock here, scanning the same QR again might re-trigger "Access Granted" animation?
+                // Actually, if status is 'success', handleScan calls handleItemVerify.
+                // So we SHOULD release lock here, but `handleScan` logic routing handles it.
+                // BUT, to prevent "double tap" effect on the exact same frame:
+                // We keep it locked for a moment or rely on status change?
+                // Let's release it so item scanning works.
+                isProcessing.current = false;
             } else {
                 setVerificationStatus('failed');
                 setMessage(`❌ ACCESS DENIED: ${data.message || data.error}`);
                 toast.error(data.message || 'Access Denied');
+                isProcessing.current = false; // Release lock to allow retry
             }
         } catch (error) {
             setVerificationStatus('failed');
             setMessage('Server Error');
             toast.error('Network or Server Error');
+            isProcessing.current = false; // Release lock
         }
     };
 
@@ -113,6 +131,7 @@ export default function SecurityScan() {
         setOrderDetails(null);
         setVerifiedItems(new Set());
         setMeasuredWeight('');
+        isProcessing.current = false; // Unlock scanner
         // We don't need reload anymore, just state reset
     };
 
