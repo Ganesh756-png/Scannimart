@@ -5,9 +5,9 @@ import { supabase as publicSupabase } from '@/lib/supabase';
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { id, stock } = body;
+        const { id, stock, weight } = body;
 
-        if (!id || typeof stock !== 'number') {
+        if (!id) {
             return NextResponse.json({ success: false, message: 'Invalid Input' }, { status: 400 });
         }
 
@@ -24,9 +24,13 @@ export async function POST(req: Request) {
             }
         }
 
+        const updateData: any = {};
+        if (typeof stock === 'number') updateData.stock = stock;
+        if (typeof weight === 'number') updateData.weight = weight;
+
         const { data, error } = await supabase
             .from('products')
-            .update({ stock })
+            .update(updateData)
             .eq('id', id)
             .select();
 

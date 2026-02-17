@@ -13,11 +13,12 @@ interface Product {
     price: number;
     barcode: string;
     stock: number;
+    weight: number;
 }
 
 export default function AdminDashboard() {
     const [products, setProducts] = useState<Product[]>([]);
-    const [newProduct, setNewProduct] = useState({ name: '', price: '', barcode: '', stock: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', price: '', barcode: '', stock: '', weight: '' });
     const [showScanner, setShowScanner] = useState(false);
     const [loading, setLoading] = useState(false);
     const [salesData, setSalesData] = useState([]);
@@ -61,7 +62,8 @@ export default function AdminDashboard() {
         const payload = {
             ...newProduct,
             price: parseFloat(newProduct.price),
-            stock: parseInt(newProduct.stock) || 0
+            stock: parseInt(newProduct.stock) || 0,
+            weight: parseFloat(newProduct.weight) || 0
         };
 
         try {
@@ -73,7 +75,7 @@ export default function AdminDashboard() {
             const data = await res.json();
 
             if (data.success) {
-                setNewProduct({ name: '', price: '', barcode: '', stock: '' });
+                setNewProduct({ name: '', price: '', barcode: '', stock: '', weight: '' });
                 fetchProducts();
                 toast.success('Product added successfully!');
             } else {
@@ -166,7 +168,7 @@ export default function AdminDashboard() {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
                                 <input
@@ -180,13 +182,23 @@ export default function AdminDashboard() {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Qty</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
                                 <input
                                     type="number"
                                     placeholder="0"
                                     className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all outline-none bg-gray-50 focus:bg-white"
                                     value={newProduct.stock}
                                     onChange={e => setNewProduct({ ...newProduct, stock: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Weight (g)</label>
+                                <input
+                                    type="number"
+                                    placeholder="0"
+                                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all outline-none bg-gray-50 focus:bg-white"
+                                    value={newProduct.weight}
+                                    onChange={e => setNewProduct({ ...newProduct, weight: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -253,6 +265,7 @@ export default function AdminDashboard() {
                                     <tr>
                                         <th className="p-4 font-semibold">Name</th>
                                         <th className="p-4 font-semibold">Price</th>
+                                        <th className="p-4 font-semibold">Weight</th>
                                         <th className="p-4 font-semibold">Barcode</th>
                                         <th className="p-4 font-semibold text-center">Stock</th>
                                     </tr>
@@ -272,6 +285,9 @@ export default function AdminDashboard() {
                                                 </td>
                                                 <td className="p-4 text-green-600 font-semibold">
                                                     ₹{p.price}
+                                                </td>
+                                                <td className="p-4 text-gray-500">
+                                                    {p.weight ? `${p.weight}g` : '-'}
                                                 </td>
                                                 <td className="p-4">
                                                     <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono border">

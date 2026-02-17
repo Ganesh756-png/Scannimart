@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import QRScanner from '@/components/QRScanner';
 import { toast, Toaster } from 'react-hot-toast';
 
@@ -146,6 +147,81 @@ export default function SecurityScan() {
     const verifiedCount = verifiedItems.size;
     const progress = totalItems > 0 ? (verifiedCount / totalItems) * 100 : 0;
 
+    // Verify all items if weight matches
+    const handleWeightVerify = () => {
+        if (!orderDetails || !orderDetails.items) return;
+
+        const allItemIds = new Set<string>();
+        orderDetails.items.forEach((item: any) => {
+            allItemIds.add(item.id || item.product_id || item.name);
+        });
+
+        setVerifiedItems(allItemIds);
+        toast.success("All items verified by weight match!", { icon: '⚖️' });
+    };
+
+    const handleQuickVerify = () => {
+        if (!orderDetails || !orderDetails.items) return;
+        // Verify all items for Low Risk
+        const allItemIds = new Set<string>();
+        orderDetails.items.forEach((item: any) => {
+            allItemIds.add(item.id || item.product_id || item.name);
+        });
+        setVerifiedItems(allItemIds);
+        toast.success("Low Risk Order - Quick Verified!", { icon: '⚡' });
+    }
+
+    // Smart Risk Logic
+    const getRiskLevel = (order: any) => {
+        if (!order) return { level: 'UNKNOWN', color: 'gray', advice: 'Scan order first' };
+
+        const totalAmount = parseFloat(order.total_amount || order.totalAmount || 0);
+        const itemCount = order.items?.length || 0;
+
+        // High Risk: Expensive order or random check (simulated randomness based on order ID last char)
+        // In real app, randomness should be backend driven or strictly seeded
+        const isRandomCheck = order.id && order.id.charCodeAt(order.id.length - 1) % 10 === 0; // 10% chance
+
+        if (totalAmount >= 5000 || isRandomCheck) {
+            return {
+                level: 'HIGH',
+                color: 'red',
+                bg: 'bg-red-100',
+                text: 'text-red-800',
+                border: 'border-red-200',
+                advice: '⚠️ FULL SCAN REQUIRED due to high value or random check.'
+            };
+        }
+
+        // Medium Risk
+        if (totalAmount > 1000 || itemCount > 5) {
+            // Find heaviest or most expensive item for spot check
+            const spotCheckItem = order.items.reduce((prev: any, current: any) => (current.price > prev.price ? current : prev), order.items[0]);
+
+            return {
+                level: 'MEDIUM',
+                color: 'yellow',
+                bg: 'bg-yellow-50',
+                text: 'text-yellow-800',
+                border: 'border-yellow-200',
+                advice: '👀 SPOT CHECK: Please verify \'' + (spotCheckItem?.name || 'Item') + '\' manually.',
+                spotCheckId: spotCheckItem?.id || spotCheckItem?.product_id || spotCheckItem?.name
+            };
+        }
+
+        // Low Risk
+        return {
+            level: 'LOW',
+            color: 'green',
+            bg: 'bg-green-50',
+            text: 'text-green-800',
+            border: 'border-green-200',
+            advice: `⚡ TRUSTED: Count ${itemCount} items and Quick Verify.`
+        };
+    };
+
+    const risk = orderDetails ? getRiskLevel(orderDetails) : null;
+
     const [pendingOrder, setPendingOrder] = useState<any>(null); // For cash payments
 
     const handleConfirmPayment = async () => {
@@ -220,17 +296,21 @@ export default function SecurityScan() {
                 </div>
             )}
 
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
-
+            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6 pb-20 md:pb-0">
                 {/* LEFT COLUMN: SCANNER */}
-                <div className="flex flex-col gap-6">
-                    <h1 className="text-2xl font-bold text-indigo-900 flex items-center gap-2">
-                        <span>🛡️</span> Security Checkpoint
-                    </h1>
+                <div className="flex flex-col gap-6 order-1 md:order-none">
+                    <div className="flex justify-between items-center w-full">
+                        <h1 className="text-xl md:text-2xl font-bold text-indigo-900 flex items-center gap-2">
+                            <span>🛡️</span> Checkpoint
+                        </h1>
+                        <Link href="/" className="text-xs md:text-sm font-bold text-red-500 hover:bg-red-50 px-3 py-1 rounded transition">
+                            Logout
+                        </Link>
+                    </div>
 
                     <div className="bg-white p-4 rounded-xl shadow-lg">
-                        <h2 className="text-sm font-bold text-gray-500 uppercase mb-4 text-center">
-                            {verificationStatus === 'idle' ? 'Step 1: Scan Exit Pass' : 'Step 2: Verify Items'}
+                        <h2 className="text-xs md:text-sm font-bold text-gray-500 uppercase mb-4 text-center">
+                            {verificationStatus === 'idle' ? 'Step 1: Scan Pass' : 'Step 2: Verify'}
                         </h2>
 
                         {/* THE SCANNER */}
@@ -264,13 +344,13 @@ export default function SecurityScan() {
                 </div>
 
                 {/* RIGHT COLUMN: RESULTS */}
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 order-2 md:order-none">
                     {/* IDLE STATE INSTRUCTIONS */}
                     {verificationStatus === 'idle' && (
-                        <div className="bg-white p-8 rounded-xl shadow-md h-full flex flex-col items-center justify-center text-center text-gray-500">
-                            <div className="text-6xl mb-4">🛂</div>
-                            <p className="text-xl font-medium">Ready to Scan</p>
-                            <p className="text-sm mt-2">Please scan the customer's QR code on their exit pass.</p>
+                        <div className="bg-white p-6 md:p-8 rounded-xl shadow-md h-full flex flex-col items-center justify-center text-center text-gray-500 min-h-[200px]">
+                            <div className="text-4xl md:text-6xl mb-4">🛂</div>
+                            <p className="text-lg md:text-xl font-medium">Ready to Scan</p>
+                            <p className="text-xs md:text-sm mt-2">Scan customer's pass.</p>
                         </div>
                     )}
 
@@ -298,6 +378,29 @@ export default function SecurityScan() {
 
                             {orderDetails && (
                                 <div className="space-y-6">
+                                    {/* Risk Badge UI */}
+                                    <div className={`p-4 rounded-lg mb-6 border-2 flex items-center justify-between ${risk?.bg} ${risk?.border}`}>
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`font-black text-sm px-2 py-0.5 rounded bg-white/50 border ${risk?.border} ${risk?.text}`}>
+                                                    {risk?.level} RISK
+                                                </span>
+                                                <h2 className={`font-bold text-lg ${risk?.text}`}>Security Advice</h2>
+                                            </div>
+                                            <p className={`text-sm font-medium ${risk?.text}`}>
+                                                {risk?.advice}
+                                            </p>
+                                        </div>
+                                        {risk?.level === 'LOW' && verifiedCount < totalItems && (
+                                            <button
+                                                onClick={handleQuickVerify}
+                                                className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-green-700 active:scale-95 transition-transform animate-pulse"
+                                            >
+                                                ⚡ Quick Verify
+                                            </button>
+                                        )}
+                                    </div>
+
                                     {/* Verification Progress */}
                                     <div>
                                         <div className="flex justify-between text-sm font-bold mb-1">
@@ -329,11 +432,16 @@ export default function SecurityScan() {
                                     {/* Item List */}
                                     <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1">
                                         {orderDetails.items?.map((item: any, i: number) => {
-                                            const isVerified = verifiedItems.has(item.id || item.product_id || item.name);
+                                            const itemId = item.id || item.product_id || item.name;
+                                            const isVerified = verifiedItems.has(itemId);
+                                            const isSpotCheck = risk?.level === 'MEDIUM' && risk?.spotCheckId === itemId;
+
                                             return (
                                                 <div
                                                     key={i}
-                                                    className={`flex justify-between items-center p-3 rounded border transition-colors ${isVerified ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100'
+                                                    className={`flex justify-between items-center p-3 rounded border transition-colors ${isVerified ? 'bg-green-50 border-green-200' :
+                                                        isSpotCheck ? 'bg-yellow-50 border-yellow-400 ring-2 ring-yellow-200' :
+                                                            'bg-white border-gray-100'
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-3">
@@ -352,7 +460,7 @@ export default function SecurityScan() {
                                     {/* Weight Check */}
                                     <div className="pt-4 border-t">
                                         <h3 className="font-bold text-gray-700 mb-2">Weight Check (Optional)</h3>
-                                        <div className="flex gap-4">
+                                        <div className="flex gap-4 items-end">
                                             <div className="flex-1">
                                                 <label className="text-xs text-gray-500">Expected</label>
                                                 <div className="font-bold text-gray-800">{expectedWeight}g</div>
@@ -368,6 +476,14 @@ export default function SecurityScan() {
                                                     onChange={e => setMeasuredWeight(e.target.value)}
                                                 />
                                             </div>
+                                            {isWeightMatch && parseFloat(measuredWeight) > 0 && verifiedCount < totalItems && (
+                                                <button
+                                                    onClick={handleWeightVerify}
+                                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold shadow hover:bg-green-700 animate-pulse"
+                                                >
+                                                    Verify All (Weight Match)
+                                                </button>
+                                            )}
                                         </div>
                                         {measuredWeight && !isWeightMatch && (
                                             <p className="text-xs text-red-600 font-bold mt-1">⚠️ Weight mismatch detected!</p>

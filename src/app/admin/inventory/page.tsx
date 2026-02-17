@@ -8,7 +8,7 @@ export default function InventoryPage() {
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [editValue, setEditValue] = useState<number>(0);
+    const [editValues, setEditValues] = useState<{ stock: number; weight: number }>({ stock: 0, weight: 0 });
 
     useEffect(() => {
         fetchProducts();
@@ -32,7 +32,7 @@ export default function InventoryPage() {
 
     const startEdit = (product: any) => {
         setEditingId(product.id);
-        setEditValue(product.stock || 0);
+        setEditValues({ stock: product.stock || 0, weight: product.weight || 0 });
     };
 
     const cancelEdit = () => {
@@ -45,14 +45,14 @@ export default function InventoryPage() {
             const res = await fetch('/api/admin/stock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, stock: Number(editValue) })
+                body: JSON.stringify({ id, stock: Number(editValues.stock), weight: Number(editValues.weight) })
             });
             const data = await res.json();
 
             if (data.success) {
                 toast.success('Stock updated!', { id: toastId });
                 // Update local state
-                setProducts(products.map(p => p.id === id ? { ...p, stock: Number(editValue) } : p));
+                setProducts(products.map(p => p.id === id ? { ...p, stock: Number(editValues.stock), weight: Number(editValues.weight) } : p));
                 setEditingId(null);
             } else {
                 toast.error(data.message || 'Update failed', { id: toastId });
@@ -67,21 +67,21 @@ export default function InventoryPage() {
             <Toaster position="top-right" />
 
             <div className="max-w-6xl mx-auto">
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-800">Inventory Management</h1>
-                    <Link href="/admin" className="text-indigo-600 hover:text-indigo-800 font-medium">
-                        ← Back to Dashboard
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Inventory Management</h1>
+                    <Link href="/admin" className="text-indigo-600 hover:text-indigo-800 font-medium text-sm md:text-base">
+                        ← Dashboard
                     </Link>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+                    <div className="overflow-x-auto w-full">
+                        <table className="w-full text-left min-w-[600px] md:min-w-full">
                             <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
                                 <tr>
                                     <th className="p-4">Product Name</th>
                                     <th className="p-4">Price</th>
-                                    <th className="p-4">Barcode</th>
+                                    <th className="p-4">Weight</th>
                                     <th className="p-4">Current Stock</th>
                                     <th className="p-4 text-center">Actions</th>
                                 </tr>
@@ -100,19 +100,31 @@ export default function InventoryPage() {
                                         <tr key={product.id} className="hover:bg-gray-50 transition">
                                             <td className="p-4 font-medium text-gray-800">{product.name}</td>
                                             <td className="p-4 text-gray-600">₹{product.price}</td>
-                                            <td className="p-4 font-mono text-xs text-gray-400">{product.barcode}</td>
+                                            <td className="p-4 text-gray-400">
+                                                {editingId === product.id ? (
+                                                    <input
+                                                        type="number"
+                                                        className="w-20 border-2 border-indigo-300 rounded px-2 py-1 outline-none focus:border-indigo-500 font-bold text-gray-700"
+                                                        value={editValues.weight}
+                                                        onChange={(e) => setEditValues({ ...editValues, weight: Number(e.target.value) })}
+                                                        min="0"
+                                                    />
+                                                ) : (
+                                                    <span>{product.weight}g</span>
+                                                )}
+                                            </td>
                                             <td className="p-4">
                                                 {editingId === product.id ? (
                                                     <input
                                                         type="number"
                                                         className="w-24 border-2 border-indigo-300 rounded px-2 py-1 outline-none focus:border-indigo-500 font-bold"
-                                                        value={editValue}
-                                                        onChange={(e) => setEditValue(Number(e.target.value))}
+                                                        value={editValues.stock}
+                                                        onChange={(e) => setEditValues({ ...editValues, stock: Number(e.target.value) })}
                                                         min="0"
                                                     />
                                                 ) : (
                                                     <span className={`font-bold px-3 py-1 rounded-full text-sm ${(product.stock || 0) <= 5 ? 'bg-red-100 text-red-700' :
-                                                            (product.stock || 0) <= 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                                                        (product.stock || 0) <= 20 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
                                                         }`}>
                                                         {product.stock || 0}
                                                     </span>

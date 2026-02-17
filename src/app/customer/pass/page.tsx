@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function PassPage() {
     const [order, setOrder] = useState<any>(null);
@@ -14,10 +15,79 @@ export default function PassPage() {
         }
     }, []);
 
+    // Listen for real-time status updates
+    useEffect(() => {
+        if (!order?.id) return;
+
+        console.log("Subscribing to order updates for:", order.id);
+
+        const channel = supabase
+            .channel(`order-${order.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'orders',
+                    filter: `id=eq.${order.id}`
+                },
+                (payload) => {
+                    console.log("Order update received:", payload);
+                    if (payload.new && payload.new.status) {
+                        setOrder((prev: any) => ({ ...prev, status: payload.new.status }));
+                        // Update local storage to keep it in sync
+                        const currentStored = localStorage.getItem('lastOrder');
+                        if (currentStored) {
+                            const parsed = JSON.parse(currentStored);
+                            parsed.status = payload.new.status;
+                            localStorage.setItem('lastOrder', JSON.stringify(parsed));
+                        }
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [order?.id]);
+
     if (!order) {
         return (
             <div className="min-h-screen flex items-center justify-center p-4">
                 <p>No active pass found. <Link href="/customer/scan" className="text-blue-500">Go scan items.</Link></p>
+            </div>
+        );
+    }
+
+    if (order.status === 'verified') {
+        return (
+            <div className="min-h-screen bg-green-600 flex flex-col items-center justify-center p-8 text-center text-white animate-fade-in">
+                <div className="bg-white rounded-full p-6 mb-8 shadow-lg animate-bounce-slow">
+                    <svg className="w-24 h-24 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                </div>
+                <h1 className="text-4xl font-extrabold mb-4 drop-shadow-md">Access Granted</h1>
+                <p className="text-xl mb-12 opacity-90">Thank you for shopping with us!</p>
+
+                <Link
+                    href="/customer/scan"
+                    onClick={() => localStorage.removeItem('lastOrder')}
+                    className="bg-white text-green-700 px-8 py-3 rounded-full font-bold shadow-xl hover:bg-gray-100 transition-transform transform active:scale-95"
+                >
+                    Start New Shopping
+                </Link>
+
+                <style jsx>{`
+                    @keyframes bounce-slow {
+                        0%, 100% { transform: translateY(-5%); }
+                        50% { transform: translateY(5%); }
+                    }
+                    .animate-bounce-slow {
+                        animation: bounce-slow 2s infinite ease-in-out;
+                    }
+                `}</style>
             </div>
         );
     }
