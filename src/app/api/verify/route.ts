@@ -71,6 +71,47 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
+        // Handle Pending Payment (Cash)
+        if (order.status === 'pending_payment') {
+            const { confirmPayment } = body;
+
+            if (!confirmPayment) {
+                return NextResponse.json({
+                    success: false,
+                    requiresPayment: true,
+                    message: 'Payment Required',
+                    order: {
+                        id: order.id,
+                        totalAmount: order.total_amount,
+                        items: order.items
+                    }
+                }, { status: 200 }); // 200 OK because it's a valid "step", not an error
+            }
+
+            // If confirmed, mark as paid AND verified
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({
+                    status: 'verified',
+                    payment_status: 'paid', // Ensure we track it was paid
+                    payment_method: 'CASH'
+                })
+                .eq('id', order.id);
+
+            if (updateError) throw updateError;
+
+            // Skip the standard verification update below since we did it here
+            return NextResponse.json({
+                success: true,
+                message: 'Payment Collected & Access Granted',
+                order: {
+                    id: order.id,
+                    totalAmount: order.total_amount,
+                    items: order.items
+                }
+            });
+        }
+
         if (order.status !== 'paid') {
             return NextResponse.json({
                 success: false,

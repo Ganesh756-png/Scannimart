@@ -40,6 +40,15 @@ export default function SecurityScan() {
             });
             const data = await res.json();
 
+            // Handle Requires Payment (Cash)
+            if (data.requiresPayment) {
+                setPendingOrder(data.order);
+                setVerificationStatus('idle'); // Keep background idle/loading
+                setMessage('⚠️ Collecting Payment');
+                toast('💰 Collect Cash: ₹' + data.order.totalAmount, { icon: '💰' });
+                return;
+            }
+
             if (data.success) {
                 setVerificationStatus('success');
                 setMessage('✅ ACCESS GRANTED');
@@ -118,11 +127,79 @@ export default function SecurityScan() {
     const verifiedCount = verifiedItems.size;
     const progress = totalItems > 0 ? (verifiedCount / totalItems) * 100 : 0;
 
+    const [pendingOrder, setPendingOrder] = useState<any>(null); // For cash payments
+
+    const handleConfirmPayment = async () => {
+        if (!pendingOrder) return;
+
+        const toastId = toast.loading('Processing Payment...');
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    qrCodeString: scanResult,
+                    confirmPayment: true
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success('Payment Confirmed!', { id: toastId });
+                setVerificationStatus('success');
+                setMessage('✅ PAYMENT RECEIVED & ACCESS GRANTED');
+                setOrderDetails(data.order);
+                setPendingOrder(null); // Clear pending
+            } else {
+                toast.error(data.message || 'Payment Confirmation Failed', { id: toastId });
+            }
+        } catch (error) {
+            toast.error('Network Error', { id: toastId });
+        }
+    };
+
     return (
         <div className={`min-h-screen flex flex-col items-center p-4 transition-colors duration-500 ${verificationStatus === 'success' ? 'bg-green-50' :
-                verificationStatus === 'failed' ? 'bg-red-50' : 'bg-gray-100'
+            verificationStatus === 'failed' ? 'bg-red-50' : 'bg-gray-100'
             }`}>
             <Toaster position="top-center" />
+
+            {/* CASH PAYMENT MODAL */}
+            {pendingOrder && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center animate-bounce-in">
+                        <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-4xl">💰</span>
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-2">Collect Cash Payment</h2>
+                        <p className="text-gray-500 mb-6">Take cash from customer before granting exit.</p>
+
+                        <div className="bg-gray-50 rounded-xl p-4 mb-6 border-2 border-dashed border-gray-200">
+                            <span className="block text-xs uppercase tracking-widest text-gray-500">Amount Due</span>
+                            <span className="block text-5xl font-black text-green-600 mt-2">₹{pendingOrder.totalAmount}</span>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => {
+                                    setPendingOrder(null);
+                                    setVerificationStatus('failed');
+                                    setMessage('❌ Payment Cancelled');
+                                }}
+                                className="flex-1 py-3 text-red-500 font-bold hover:bg-red-50 rounded-lg transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmPayment}
+                                className="flex-1 py-3 bg-green-600 text-white font-bold rounded-lg shadow-lg hover:bg-green-700 transition transform hover:scale-105"
+                            >
+                                Confirm Received
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
 
@@ -138,7 +215,6 @@ export default function SecurityScan() {
                         </h2>
 
                         {/* THE SCANNER */}
-                        {/* We always keep scanner mounted but maybe control visibility or feedback */}
                         <QRScanner
                             onScanSuccess={handleScan}
                             onScanFailure={() => { }}
@@ -147,7 +223,7 @@ export default function SecurityScan() {
                         <form onSubmit={handleManualVerify} className="mt-4 flex gap-2">
                             <input
                                 type="text"
-                                placeholder={verificationStatus === 'idle' ? "Enter Order ID" : "Enter Item Barcode"}
+                                placeholder={verificationStatus === 'idle' ? "Enter Order ID" : "Verify Item Barcode"}
                                 className="flex-1 border p-2 rounded focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                                 value={manualCode}
                                 onChange={(e) => setManualCode(e.target.value)}
@@ -170,13 +246,12 @@ export default function SecurityScan() {
 
                 {/* RIGHT COLUMN: RESULTS */}
                 <div className="flex flex-col gap-6">
-
                     {/* IDLE STATE INSTRUCTIONS */}
                     {verificationStatus === 'idle' && (
                         <div className="bg-white p-8 rounded-xl shadow-md h-full flex flex-col items-center justify-center text-center text-gray-500">
                             <div className="text-6xl mb-4">🛂</div>
                             <p className="text-xl font-medium">Ready to Scan</p>
-                            <p className="text-sm mt-2">Please scan the customer's QR code on their exit pass or mobile.</p>
+                            <p className="text-sm mt-2">Please scan the customer's QR code on their exit pass.</p>
                         </div>
                     )}
 

@@ -34,17 +34,21 @@ export default function CartPage() {
     const tax = total * 0.18; // 18% GST example
     const finalTotal = total + tax;
 
+    const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CASH'>('UPI');
+
     const handleCheckout = async () => {
         setProcessing(true);
 
         try {
-            // Simulate Payment Delay
-            await new Promise(r => setTimeout(r, 1500));
+            // Simulate Payment Delay only for UPI
+            if (paymentMethod === 'UPI') {
+                await new Promise(r => setTimeout(r, 1500));
+            }
 
             const res = await fetch('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: cart, paymentMethod: 'UPI' })
+                body: JSON.stringify({ items: cart, paymentMethod })
             });
 
             const data = await res.json();
@@ -52,9 +56,6 @@ export default function CartPage() {
             if (data.success) {
                 // Clear cart
                 localStorage.removeItem('cart');
-                // Redirect to Pass page with Order ID
-                // In a real app we might not pass data in query params like this for security, 
-                // but for prototype it's fine. Or save orderId to local storage.
                 localStorage.setItem('lastOrder', JSON.stringify(data.order));
                 router.push('/customer/pass');
             } else {
@@ -115,12 +116,38 @@ export default function CartPage() {
                             </div>
                         </div>
 
+                        {/* Payment Method Selection */}
+                        <div className="mt-6">
+                            <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase">Payment Method</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    onClick={() => setPaymentMethod('UPI')}
+                                    className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center transition-all ${paymentMethod === 'UPI' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <span className="text-2xl mb-1">📱</span>
+                                    <span className="font-bold">UPI / Card</span>
+                                </button>
+                                <button
+                                    onClick={() => setPaymentMethod('CASH')}
+                                    className={`p-3 rounded-lg border-2 flex flex-col items-center justify-center transition-all ${paymentMethod === 'CASH' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                >
+                                    <span className="text-2xl mb-1">💵</span>
+                                    <span className="font-bold">Cash</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <button
                             onClick={handleCheckout}
                             disabled={processing}
-                            className={`w-full mt-8 py-4 rounded-xl text-white font-bold text-lg shadow-md transition transform active:scale-95 ${processing ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                            className={`w-full mt-8 py-4 rounded-xl text-white font-bold text-lg shadow-md transition transform active:scale-95 ${processing ? 'bg-gray-400 cursor-not-allowed' :
+                                paymentMethod === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                         >
-                            {processing ? 'Processing Payment...' : `Pay ₹${finalTotal.toFixed(2)} with UPI`}
+                            {processing ? 'Processing...' :
+                                paymentMethod === 'CASH' ? `Generate Cash QR` : `Pay ₹${finalTotal.toFixed(2)} Now`}
                         </button>
 
                         <div className="mt-4 text-center">

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
                 {
                     items: orderItems, // JSONB
                     total_amount: totalAmount,
-                    status: 'paid',
+                    status: (paymentMethod === 'CASH') ? 'pending_payment' : 'paid',
                     payment_method: paymentMethod || 'UPI',
                     qr_code_string: `ORDER-${Date.now()}-${Math.random().toString(36).substring(7)}`,
                 }
