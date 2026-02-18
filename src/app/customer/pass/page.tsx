@@ -100,6 +100,14 @@ export default function PassPage() {
                     Start New Shopping
                 </Link>
 
+                <Link
+                    href={`/orders/${order.id}/invoice`}
+                    target="_blank"
+                    className="mt-4 text-white underline hover:text-gray-200 transition"
+                >
+                    📄 Download Invoice
+                </Link>
+
                 <style jsx>{`
                     @keyframes bounce-slow {
                         0%, 100% { transform: translateY(-5%); }

@@ -426,6 +426,13 @@ export default function SecurityScan() {
                                         <div className="text-right">
                                             <span className="block text-gray-500 text-xs">Total Amount</span>
                                             <span className="font-bold text-green-600 text-lg">₹{orderDetails.totalAmount}</span>
+                                            <Link
+                                                href={`/orders/${orderDetails.id}/invoice`}
+                                                target="_blank"
+                                                className="block mt-1 text-xs text-indigo-600 hover:text-indigo-800 underline"
+                                            >
+                                                📄 View Invoice
+                                            </Link>
                                         </div>
                                     </div>
 
