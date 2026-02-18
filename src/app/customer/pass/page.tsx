@@ -36,12 +36,13 @@ export default function PassPage() {
         }
     }, []);
 
-    // Listen for real-time status updates
+    // Listen for real-time status updates + Polling Fallback
     useEffect(() => {
         if (!order?.id) return;
 
         console.log("Subscribing to order updates for:", order.id);
 
+        // 1. Realtime Subscription
         const channel = supabase
             .channel(`order-${order.id}`)
             .on(
@@ -56,7 +57,6 @@ export default function PassPage() {
                     console.log("Order update received:", payload);
                     if (payload.new && payload.new.status) {
                         setOrder((prev: any) => ({ ...prev, status: payload.new.status }));
-                        // Update local storage to keep it in sync
                         const currentStored = localStorage.getItem('lastOrder');
                         if (currentStored) {
                             const parsed = JSON.parse(currentStored);
@@ -68,10 +68,33 @@ export default function PassPage() {
             )
             .subscribe();
 
+        // 2. Polling Fallback (Every 4 seconds)
+        // This ensures it works even if Realtime is disabled in Supabase Dashboard
+        const interval = setInterval(() => {
+            supabase
+                .from('orders')
+                .select('status')
+                .eq('id', order.id)
+                .single()
+                .then(({ data }) => {
+                    if (data && data.status && data.status !== order.status) {
+                        console.log("Polling updated status:", data.status);
+                        setOrder((prev: any) => ({ ...prev, status: data.status }));
+                        const currentStored = localStorage.getItem('lastOrder');
+                        if (currentStored) {
+                            const parsed = JSON.parse(currentStored);
+                            parsed.status = data.status;
+                            localStorage.setItem('lastOrder', JSON.stringify(parsed));
+                        }
+                    }
+                });
+        }, 4000);
+
         return () => {
             supabase.removeChannel(channel);
+            clearInterval(interval);
         };
-    }, [order?.id]);
+    }, [order?.id, order?.status]);
 
     if (!order) {
         return (
