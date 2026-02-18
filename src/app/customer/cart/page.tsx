@@ -45,10 +45,27 @@ export default function CartPage() {
                 await new Promise(r => setTimeout(r, 1500));
             }
 
+            // Get Customer Details from Main Auth
+            const userStr = localStorage.getItem('user');
+            if (!userStr) {
+                alert('Please login to continue');
+                router.push('/login');
+                return;
+            }
+            const user = JSON.parse(userStr);
+
             const res = await fetch('/api/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: cart, paymentMethod })
+                body: JSON.stringify({
+                    items: cart,
+                    paymentMethod,
+                    customerDetails: {
+                        name: user.name,
+                        email: user.email,
+                        phone: user.phone || 'N/A' // Use phone if available in main auth
+                    }
+                })
             });
 
             const data = await res.json();

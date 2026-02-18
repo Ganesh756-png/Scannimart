@@ -32,9 +32,19 @@ export default function CustomerScan() {
     const isMounted = useRef(true);
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const regionId = "html5qr-code-full-region";
+    const router = useRouter();
 
     useEffect(() => {
         isMounted.current = true;
+
+        // AUTH CHECK
+        const user = localStorage.getItem('user');
+        if (!user) {
+            toast.error('Please login first');
+            router.push('/login');
+            return;
+        }
+
         // Load cart from local storage
         const savedCart = localStorage.getItem('cart');
         if (savedCart) {
@@ -54,7 +64,7 @@ export default function CustomerScan() {
                 }
             }
         };
-    }, []);
+    }, [router]);
 
     // Initialize scanner
     const startScanner = async () => {

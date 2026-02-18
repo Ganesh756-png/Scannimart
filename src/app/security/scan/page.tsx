@@ -424,8 +424,31 @@ export default function SecurityScan() {
 
                             {orderDetails && (
                                 <div className="space-y-6">
+                                    {/* CUSTOMER DETAILS */}
+                                    {orderDetails.customer_details && (
+                                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4 flex items-center gap-3 animate-fade-in-up">
+                                            <div className="bg-blue-200 text-blue-700 w-10 h-10 flex items-center justify-center rounded-full text-xl shadow-sm">
+                                                👤
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wider mb-0.5">Verified Customer</p>
+                                                <p className="font-bold text-gray-900 text-lg leading-tight">
+                                                    {orderDetails.customer_details.name}
+                                                </p>
+                                                <p className="text-sm text-gray-500 font-mono tracking-tight">
+                                                    {orderDetails.customer_details.email}
+                                                </p>
+                                                {orderDetails.customer_details.phone && orderDetails.customer_details.phone !== 'N/A' && (
+                                                    <p className="text-xs text-gray-400">
+                                                        {orderDetails.customer_details.phone}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Risk Badge UI */}
-                                    <div className={`p-4 rounded-lg mb-6 border-2 flex items-center justify-between ${risk?.bg} ${risk?.border}`}>
+                                    <div className={`p-4 rounded-lg mb-6 border-2 flex items-center justify-between shadow-sm transition-colors ${risk?.bg} ${risk?.border}`}>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className={`font-black text-sm px-2 py-0.5 rounded bg-white/50 border ${risk?.border} ${risk?.text}`}>
