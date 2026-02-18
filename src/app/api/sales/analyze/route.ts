@@ -41,8 +41,10 @@ export async function POST(req: NextRequest) {
         `;
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Using gemini-flash-latest as it is the current standard and widely accessible
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        // Using gemini-1.5-flash which is standard and reliable
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        console.log("Sending prompt to Gemini (Sales Analysis)...");
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -51,7 +53,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, analysis: text });
 
     } catch (error: any) {
-        console.error('AI Analysis Error:', error);
-        return NextResponse.json({ success: false, error: 'Failed to generate insights: ' + error.message }, { status: 500 });
+        console.error('AI Analysis Error (Using Fallback Mode):', error);
+
+        // FALLBACK: Generate Logic-Based Insights locally
+        // We need to re-fetch or use sales data from scope if available, but simplest is to do a quick calc here
+        // Re-fetching locally since 'sales' variable scope is inside try block in original code (oops, let's fix that assumption or re-query if needed, 
+        // but wait, we can't easily access 'sales' from catch block if it was defined inside try. 
+        // Let's assume we want to just return a generic valid response or re-query.)
+
+        // Actually, let's just re-query quickly for the fallback to be accurate
+        const { data: salesFallback } = await supabase
+            .from('sales')
+            .select('*')
+            .order('sale_date', { ascending: false })
+            .limit(50);
+
+        let fallbackInsights = "AI Service Unavailable. Showing Calculated Insights:\n";
+
+        if (salesFallback && salesFallback.length > 0) {
+            const totalRev = salesFallback.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
+            const topItem = salesFallback.sort((a, b) => b.quantity - a.quantity)[0];
+
+            fallbackInsights += `• Total Recent Revenue: ₹${totalRev.toFixed(2)}\n`;
+            fallbackInsights += `• Best Selling Item: ${topItem.item_name} (${topItem.quantity} sold)\n`;
+            fallbackInsights += `• Action: Consider restocking ${topItem.item_name} as it is popular.\n`;
+            fallbackInsights += `• Trend: Sales are active. Monitoring stock levels is recommended.`;
+        } else {
+            fallbackInsights += "• No sales data found to analyze.";
+        }
+
+        return NextResponse.json({ success: true, analysis: fallbackInsights });
     }
 }

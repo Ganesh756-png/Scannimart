@@ -11,8 +11,11 @@ let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export async function POST(req: NextRequest) {
+    let message = "";
     try {
-        const { message, history } = await req.json();
+        const body = await req.json();
+        message = body.message;
+        const { history } = body;
 
         if (!process.env.GEMINI_API_KEY) {
             return NextResponse.json({
@@ -66,9 +69,9 @@ export async function POST(req: NextRequest) {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         console.log("Sending prompt to Gemini...");
-        
+
         // Race the API call against a timeout
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Request timed out")), 10000)
         );
 
@@ -82,19 +85,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, reply: text });
 
     } catch (error: any) {
-        console.error("Chat API Error:", error);
+        console.error("Chat API Error (Using Fallback Mode):", error);
 
-        // Graceful fallback for timeouts
-        if (error.message === "Request timed out") {
-            return NextResponse.json({ 
-                success: true, 
-                reply: "I'm thinking a bit too hard right now! Please ask me again." 
-            });
+        // FALLBACK: Local heuristic response
+        const lowerMsg = (message || "").toLowerCase();
+        let fallbackReply = "I'm having trouble connecting to my brain, but I can still help!";
+
+        // Simple keyword matching for products
+        if (cachedProducts && cachedProducts.length > 0) {
+            const mentionedProduct = cachedProducts.find((p: any) => lowerMsg.includes(p.name.toLowerCase()));
+            if (mentionedProduct) {
+                fallbackReply = `${mentionedProduct.name} is available for ₹${mentionedProduct.price}. ${mentionedProduct.stock > 0 ? 'In Stock!' : 'Currently Out of Stock.'}`;
+            } else if (lowerMsg.includes('price') || lowerMsg.includes('cost')) {
+                fallbackReply = "Which product's price are you looking for? We have: " + cachedProducts.slice(0, 3).map((p: any) => p.name).join(', ') + "...";
+            } else if (lowerMsg.includes('hello') || lowerMsg.includes('hi')) {
+                fallbackReply = "Hello! Welcome to Scannimart. Ask me about any product!";
+            } else {
+                fallbackReply = "I couldn't find that specific product. Try asking about: " + cachedProducts.slice(0, 3).map((p: any) => p.name).join(', ');
+            }
+        } else {
+            fallbackReply = "I'm currently offline and can't check the inventory. Please try again later.";
         }
 
-        return NextResponse.json({
-            success: false,
-            message: `Error: ${error.message || error.toString()}`
-        }, { status: 500 });
+        return NextResponse.json({ success: true, reply: fallbackReply + " (Offline Mode)" });
     }
 }

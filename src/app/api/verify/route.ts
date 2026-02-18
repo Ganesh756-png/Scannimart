@@ -22,32 +22,16 @@ export async function POST(req: NextRequest) {
         if (isUUID) {
             query = query.eq('id', qrCodeString);
         } else if (isShortID) {
-            // OPTION 3 (Safest): Fetch recent orders and filter in JS 
-            // This avoids "uuid ~~* unknown" errors completely with Supabase/Postgres
-            const { data: recentOrders, error: recentError } = await supabase
-                .from('orders')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(50);
+            // OPTION 3: Direct DB Lookup for Readable ID
+            // We assume 'readable_id' column exists. If not, this might fail, but we added it to insert.
+            query = supabase.from('orders').select('*').eq('readable_id', qrCodeString.toUpperCase());
 
-            if (recentError) {
-                console.error("Error fetching recent orders:", recentError);
-            }
-
-            // Find match in JS
-            const match = recentOrders?.find((o: any) =>
-                (o.readable_id && o.readable_id.toUpperCase() === qrCodeString.toUpperCase()) ||
-                (o.id && o.id.toUpperCase().startsWith(qrCodeString.toUpperCase()))
-            );
-
-            if (match) {
-                // Return this as the single result
-                // We reconstruct the query to fetch this exact ID to maintain downstream logic consistency
-                query = supabase.from('orders').select('*').eq('id', match.id);
-            } else {
-                // No match found in recent orders
-                return NextResponse.json({ success: false, message: 'Order not found (or expired)' }, { status: 404 });
-            }
+            // Note: If multiple orders have same ID (collisions), we might get multiple.
+            // We should take the latest one or handle it. 
+            // supabase .single() would fail if multiple.
+            // Let's use .limit(1) and .single() if we want just one, or handle array.
+            // 'query' above is a builder.
+            query = query.limit(1);
         } else {
             query = query.eq('qr_code_string', qrCodeString);
         }

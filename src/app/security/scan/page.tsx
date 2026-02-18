@@ -322,7 +322,7 @@ export default function SecurityScan() {
                         <form onSubmit={handleManualVerify} className="mt-4 flex gap-2">
                             <input
                                 type="text"
-                                placeholder={verificationStatus === 'idle' ? "Enter Order ID" : "Verify Item Barcode"}
+                                placeholder={verificationStatus === 'idle' ? "Enter Order ID / Short Code" : "Verify Item Barcode"}
                                 className="flex-1 border p-2 rounded focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                                 value={manualCode}
                                 onChange={(e) => setManualCode(e.target.value)}

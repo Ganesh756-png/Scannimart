@@ -120,6 +120,14 @@ export default function PassPage() {
                     {order.status === 'pending_payment' ? 'PAY AT COUNTER' : 'PAID & VERIFIED'}
                 </div>
 
+                {/* Short ID Display */}
+                {order.readable_id && (
+                    <div className="mb-4 bg-gray-100 rounded-lg p-2 border-2 border-dashed border-gray-300">
+                        <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">Monitor/Security Code</p>
+                        <p className="text-3xl font-black tracking-widest text-indigo-900">{order.readable_id}</p>
+                    </div>
+                )}
+
                 <div className="mb-6">
                     <QRCodeSVG value={order.id} size={200} className="mx-auto" />
                     <p className="mt-4 text-xs text-gray-400 font-mono">{order.id}</p>
