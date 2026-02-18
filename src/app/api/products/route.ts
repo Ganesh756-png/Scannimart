@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
                     barcode: body.barcode,
                     weight: parseFloat(body.weight || '0'),
                     stock: parseInt(body.stock || '0'),
+                    variants: body.variants || null, // JSONB array of {name, price, barcode_suffix}
                 }
             ])
             .select()

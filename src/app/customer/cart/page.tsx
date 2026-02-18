@@ -68,8 +68,11 @@ export default function CartPage() {
         }
     };
 
-    const removeFromCart = (productId: string) => {
-        const newCart = cart.filter(item => item.product !== productId);
+    const removeFromCart = (productId: string, variant?: any) => {
+        const newCart = cart.filter(item =>
+            !(item.product === productId &&
+                ((!item.variant && !variant) || (item.variant?.name === variant?.name)))
+        );
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
     };
@@ -88,14 +91,14 @@ export default function CartPage() {
                     <>
                         <div className="mb-6">
                             {cart.map((item) => (
-                                <div key={item.product} className="flex justify-between items-center border-b py-3">
+                                <div key={item.product + (item.variant?.name || '')} className="flex justify-between items-center border-b py-3">
                                     <div>
                                         <p className="font-semibold text-lg">{item.name}</p>
                                         <p className="text-gray-500 text-sm">Qty: {item.quantity} x ₹{item.price}</p>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="font-bold">₹{item.price * item.quantity}</span>
-                                        <button onClick={() => removeFromCart(item.product)} className="text-red-500 text-sm">Remove</button>
+                                        <button onClick={() => removeFromCart(item.product, item.variant)} className="text-red-500 text-sm">Remove</button>
                                     </div>
                                 </div>
                             ))}

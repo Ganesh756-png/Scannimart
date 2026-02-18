@@ -89,17 +89,45 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleScanSuccess = (decodedText: string) => {
+    const handleScanSuccess = async (decodedText: string) => {
         // Check if product already exists
         const existingProduct = products.find(p => p.barcode === decodedText);
 
         if (existingProduct) {
             toast.error(`Product "${existingProduct.name}" already exists!`, { duration: 4000 });
-            // Optional: Highlight or scroll to existing product
         } else {
+            // New Barcode Scanned
             setNewProduct(prev => ({ ...prev, barcode: decodedText }));
             setShowScanner(false);
             toast.success('Barcode scanned!');
+
+            // 🚀 OpenFoodFacts Lookup
+            const toastId = toast.loading('Looking up product info...');
+            try {
+                const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`);
+                const data = await res.json();
+
+                if (data.status === 1 && data.product) {
+                    const p = data.product;
+
+                    // Try to parse weight
+                    let weight = '';
+                    if (p.product_quantity) {
+                        weight = parseFloat(p.product_quantity).toString(); // Crude parse
+                    }
+
+                    setNewProduct(prev => ({
+                        ...prev,
+                        name: p.product_name || p.generic_name || prev.name,
+                        weight: weight || prev.weight
+                    }));
+                    toast.success('Product info found!', { id: toastId });
+                } else {
+                    toast('Product not found in global DB. Please enter details manually.', { id: toastId, icon: '✏️' });
+                }
+            } catch (error) {
+                toast.error('Could not fetch global data', { id: toastId });
+            }
         }
     };
 
@@ -150,7 +178,35 @@ export default function AdminDashboard() {
                         {showScanner && (
                             <div className="mt-4 p-4 bg-gray-100 rounded-xl animate-fade-in">
                                 <QRScanner onScanSuccess={handleScanSuccess} />
-                                <p className="text-center text-sm text-gray-500 mt-2">Point camera at a barcode</p>
+                                <p className="text-center text-sm text-gray-500 mt-2 mb-4">Point camera at a barcode</p>
+
+                                {/* Simulation Controls */}
+                                <div className="border-t pt-4">
+                                    <p className="text-xs text-center text-gray-400 font-bold uppercase mb-2">Dev Simulation</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleScanSuccess('8901058000472')} // Maggi
+                                            className="bg-yellow-200 text-yellow-800 text-xs py-2 rounded font-bold hover:bg-yellow-300"
+                                        >
+                                            🍜 Maggi
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleScanSuccess('5449000000996')} // Coke
+                                            className="bg-red-200 text-red-800 text-xs py-2 rounded font-bold hover:bg-red-300"
+                                        >
+                                            🥤 Coke
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleScanSuccess('9780545010221')} // HP Book
+                                            className="bg-blue-200 text-blue-800 text-xs py-2 rounded font-bold hover:bg-blue-300"
+                                        >
+                                            📚 Book
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

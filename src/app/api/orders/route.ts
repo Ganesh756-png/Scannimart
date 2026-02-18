@@ -24,18 +24,32 @@ export async function POST(req: NextRequest) {
                 .single();
 
             if (!product) {
-                // Try finding by _id if migration kept old IDs? No, we are using new UUIDs.
-                // If frontend sends old IDs, this might break until we clear cart.
                 return NextResponse.json({ success: false, message: `Product not found: ${item.product}` }, { status: 404 });
+            }
+
+            // Handle Variants
+            let finalPrice = product.price;
+            let finalName = product.name;
+            let finalWeight = product.weight;
+
+            if (item.variant) {
+                const variant = product.variants?.find((v: any) => v.name === item.variant.name);
+                if (variant) {
+                    finalPrice = variant.price;
+                    finalName = `${product.name} (${variant.name})`;
+                    finalWeight = variant.weight || product.weight;
+                }
             }
 
             orderItems.push({
                 product_id: product.id,
                 quantity: item.quantity,
-                price: product.price,
-                name: product.name
+                price: finalPrice,
+                name: finalName,
+                weight: finalWeight, // Include weight for security verification
+                variant: item.variant || null
             });
-            totalAmount += product.price * item.quantity;
+            totalAmount += finalPrice * item.quantity;
         }
 
         // Create Order

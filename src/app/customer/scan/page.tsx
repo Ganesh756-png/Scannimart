@@ -23,6 +23,7 @@ export default function CustomerScan() {
     const [loading, setLoading] = useState(false);
     const [scanError, setScanError] = useState<string | null>(null);
     const [scannedProduct, setScannedProduct] = useState<any>(null); // For Modal
+    const [selectedVariant, setSelectedVariant] = useState<any>(null); // For Modal
     const [quantity, setQuantity] = useState(1); // For Modal
     const [isScanning, setIsScanning] = useState(false);
     const [manualBarcode, setManualBarcode] = useState('');
@@ -152,6 +153,14 @@ export default function CustomerScan() {
             if (data.success) {
                 setQuantity(1);
                 setScannedProduct(data.data);
+
+                // Set default variant if available
+                if (data.data.variants && data.data.variants.length > 0) {
+                    setSelectedVariant(data.data.variants[0]);
+                } else {
+                    setSelectedVariant(null);
+                }
+
                 // Ensure scanner is stopped if we got here via manual input while scanning
                 if (isScanning) stopScanner();
             } else {
@@ -178,9 +187,17 @@ export default function CustomerScan() {
 
     const confirmAddToCart = () => {
         if (!scannedProduct) return;
-        addToCart(scannedProduct, quantity);
+
+        // If has variants but none selected (shouldn't happen due to default, but safe check)
+        if (scannedProduct.variants && !selectedVariant) {
+            toast.error("Please select a variant");
+            return;
+        }
+
+        addToCart(scannedProduct, quantity, selectedVariant);
         toast.success(`Added ${quantity} x ${scannedProduct.name}`);
         setScannedProduct(null);
+        setSelectedVariant(null);
         setQuantity(1);
         setManualBarcode('');
         // Restart scanner
@@ -189,21 +206,39 @@ export default function CustomerScan() {
 
     const cancelScan = () => {
         setScannedProduct(null);
+        setSelectedVariant(null);
         setQuantity(1);
         // Restart scanner
         setTimeout(startScanner, 500);
     };
 
-    const addToCart = (product: any, qty: number) => {
+    const addToCart = (product: any, qty: number, variant?: any) => {
         setCart((prevCart) => {
-            const existingItem = prevCart.find((item) => item.product === product.id);
+            // Unique key depends on product ID AND variant name (if any)
+            const variantKey = variant ? variant.name : 'default';
+
+            const existingItem = prevCart.find((item) =>
+                item.product === product.id &&
+                ((!item.variant && !variant) || (item.variant?.name === variant?.name))
+            );
+
             let newCart;
+            const price = variant ? variant.price : product.price;
+            const name = variant ? `${product.name} (${variant.name})` : product.name;
+
             if (existingItem) {
                 newCart = prevCart.map((item) =>
-                    item.product === product.id ? { ...item, quantity: item.quantity + qty } : item
+                    (item.product === product.id && ((!item.variant && !variant) || (item.variant?.name === variant?.name)))
+                        ? { ...item, quantity: item.quantity + qty } : item
                 );
             } else {
-                newCart = [...prevCart, { product: product.id, name: product.name, price: product.price, quantity: qty }];
+                newCart = [...prevCart, {
+                    product: product.id,
+                    name: name,
+                    price: price,
+                    quantity: qty,
+                    variant: variant || null
+                }];
             }
             localStorage.setItem('cart', JSON.stringify(newCart));
             return newCart;
@@ -262,10 +297,40 @@ export default function CustomerScan() {
                 {/* 2. PRODUCT DETAILS MODAL (Overlay) */}
                 {scannedProduct && (
                     <div className="absolute inset-0 bg-white z-30 flex flex-col items-center justify-center p-6 text-center animate-fadeIn rounded-xl">
-                        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 text-2xl font-bold">✓</div>
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 text-2xl font-bold">
+                            {scannedProduct.variants ? '⚡' : '✓'}
+                        </div>
                         <h3 className="text-xl font-bold text-gray-800 mb-1">{scannedProduct.name}</h3>
-                        <p className="text-gray-500 mb-6 font-mono text-sm bg-gray-100 px-2 py-1 rounded">{scannedProduct.barcode}</p>
-                        <p className="text-2xl font-bold text-blue-600 mb-6">₹{scannedProduct.price}</p>
+                        <p className="text-gray-500 mb-4 font-mono text-sm bg-gray-100 px-2 py-1 rounded">{scannedProduct.barcode}</p>
+
+                        {/* Variant Selection */}
+                        {scannedProduct.variants && (
+                            <div className="grid grid-cols-2 gap-2 mb-6 w-full">
+                                {scannedProduct.variants.map((v: any) => (
+                                    <button
+                                        key={v.name}
+                                        onClick={() => setSelectedVariant(v)}
+                                        className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${selectedVariant?.name === v.name
+                                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                            : 'border-gray-200 text-gray-600 hover:border-blue-200'
+                                            }`}
+                                    >
+                                        <span className="block">{v.name}</span>
+                                        <span className="block text-lg">₹{v.price}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {!scannedProduct.variants && (
+                            <p className="text-2xl font-bold text-blue-600 mb-6">₹{scannedProduct.price}</p>
+                        )}
+
+                        {selectedVariant && (
+                            <p className="text-sm text-gray-500 mb-2">
+                                Price: <span className="font-bold text-gray-800">₹{selectedVariant.price}</span>
+                            </p>
+                        )}
 
                         <div className="flex items-center gap-6 mb-8 bg-gray-50 p-2 rounded-full border">
                             <button

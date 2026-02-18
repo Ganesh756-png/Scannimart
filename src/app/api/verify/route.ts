@@ -103,44 +103,64 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // 2. Mark as verified
-        const { error: updateError } = await supabase
-            .from('orders')
-            .update({ status: 'verified' })
-            .eq('id', order.id);
+        // 2. CHECK ACTION TYPE
+        // If action is NOT 'confirm_access', we just return the order details for inspection.
+        // The default behavior for scanning (action='scan_only' or undefined) is to SHOW details, NOT grant access yet.
+        const { action } = body;
 
-        if (updateError) {
-            throw updateError;
+        // If explicitly confirming access, proceed to update status
+        if (action === 'confirm_access') {
+            const { error: updateError } = await supabase
+                .from('orders')
+                .update({ status: 'verified' })
+                .eq('id', order.id);
+
+            if (updateError) throw updateError;
+
+            return NextResponse.json({
+                success: true,
+                message: 'Access Granted',
+                order: {
+                    id: order.id,
+                    totalAmount: order.total_amount,
+                    items: order.items
+                }
+            });
         }
 
-        // Parse items if it's a string (sometimes Supabase returns JSONB as object, sometimes string depending on driver)
+        // 3. IF SCAN ONLY (Default) -> Return details but DO NOT verify yet
+        // Parse items
         let items = order.items;
         if (typeof items === 'string') {
-            try {
-                items = JSON.parse(items);
-            } catch (e) {
-                console.error("Failed to parse items JSON:", e);
-                items = [];
-            }
+            try { items = JSON.parse(items); } catch (e) { items = []; }
         }
 
-        const itemCount = Array.isArray(items) ? items.length : 0;
-
-        // Calculate Total Expected Weight (sum of item.weight * item.quantity)
-        // If weight is missing, we assume 0 or handle it gracefully.
-        // For existing orders without weight, this might return 0 which is fine.
-        const totalExpectedWeight = Array.isArray(items)
-            ? items.reduce((sum: number, item: any) => sum + ((item.weight || 0) * (item.quantity || 1)), 0)
-            : 0;
+        // Calculate Total Expected Weight
+        let totalExpectedWeight = 0;
+        if (Array.isArray(items) && items.length > 0) {
+            const productIds = items.map((item: any) => item.product_id || item.id);
+            const { data: products } = await supabase
+                .from('products')
+                .select('id, weight')
+                .in('id', productIds);
+            const productWeightMap = new Map();
+            products?.forEach((p: any) => productWeightMap.set(p.id, p.weight));
+            totalExpectedWeight = items.reduce((sum: number, item: any) => {
+                const pid = item.product_id || item.id;
+                const weight = productWeightMap.get(pid) || item.weight || 0;
+                return sum + (weight * (item.quantity || 1));
+            }, 0);
+        }
 
         return NextResponse.json({
             success: true,
-            message: 'Access Granted',
+            message: 'Order Scanned - Ready for Inspection',
+            requiresManualGrant: true, // Frontend flag to show "Grant Access" button
             order: {
                 id: order.id,
                 totalAmount: order.total_amount,
                 totalExpectedWeight: totalExpectedWeight,
-                items: order.items // Return full item details
+                items: order.items
             }
         });
 

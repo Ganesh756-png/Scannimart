@@ -160,17 +160,25 @@ export default function InvoicePage() {
                                 try {
                                     // Dynamic import to avoid SSR issues
                                     // @ts-ignore
-                                    const html2pdf = (await import('html2pdf.js')).default;
+                                    const { toPng } = await import('html-to-image');
+                                    // @ts-ignore
+                                    const { jsPDF } = await import('jspdf');
 
-                                    const opt = {
-                                        margin: 0,
-                                        filename: `Invoice_${order.id.slice(0, 8)}.pdf`,
-                                        image: { type: 'jpeg' as const, quality: 0.98 },
-                                        html2canvas: { scale: 2, useCORS: true },
-                                        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-                                    };
+                                    const dataUrl = await toPng(element, { quality: 0.95, pixelRatio: 2 });
 
-                                    await html2pdf().set(opt).from(element).save();
+                                    const pdf = new jsPDF({
+                                        orientation: 'portrait',
+                                        unit: 'mm',
+                                        format: 'a4'
+                                    });
+
+                                    const imgProps = pdf.getImageProperties(dataUrl);
+                                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                                    pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                                    pdf.save(`Invoice_${order.id.slice(0, 8)}.pdf`);
+
                                     toast.success('Downloaded!', { id: loadingId });
                                 } catch (error: any) {
                                     console.error("PDF Error:", error);

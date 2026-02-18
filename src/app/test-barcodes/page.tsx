@@ -36,12 +36,50 @@ export default function TestBarcodesPage() {
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-8 text-blue-800">
-                    <p className="font-semibold text-lg mb-2">How to test:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                        <li>This page lists <strong>ALL products</strong> currently in your database.</li>
-                        <li>Open this page on a laptop and scan these codes with your phone (Customer App).</li>
-                        <li>Or use the Admin Dashboard to add more products, and they will appear here automatically.</li>
-                    </ul>
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="font-semibold text-lg mb-2">How to test:</p>
+                            <ul className="list-disc list-inside space-y-1">
+                                <li>This page lists <strong>ALL products</strong> currently in your database.</li>
+                                <li>Open this page on a laptop and scan these codes with your phone (Customer App).</li>
+                                <li>Or use the Admin Dashboard to add more products, and they will appear here automatically.</li>
+                            </ul>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (!confirm("Create 'Test Biscuit' with variants?")) return;
+                                try {
+                                    const res = await fetch('/api/products', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            name: 'Test Biscuit',
+                                            price: 10,
+                                            barcode: `TEST-BISCUIT-${Date.now().toString().slice(-4)}`,
+                                            weight: 50,
+                                            stock: 100,
+                                            variants: [
+                                                { name: 'Small', price: 10, weight: 50 },
+                                                { name: 'Large', price: 20, weight: 100 }
+                                            ]
+                                        })
+                                    });
+                                    if (res.ok) {
+                                        alert('Product Created! Refreshing...');
+                                        window.location.reload();
+                                    } else {
+                                        const err = await res.json();
+                                        alert('Error: ' + err.error);
+                                    }
+                                } catch (e) {
+                                    alert('Failed to connect to API');
+                                }
+                            }}
+                            className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 shadow transition text-sm"
+                        >
+                            + Create "Variant Product"
+                        </button>
+                    </div>
                 </div>
 
                 {products.length === 0 ? (

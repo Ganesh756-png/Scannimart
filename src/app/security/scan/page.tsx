@@ -57,19 +57,25 @@ export default function SecurityScan() {
                 return;
             }
 
+            // Handle Manual Grant (Standard Flow)
+            if (data.requiresManualGrant) {
+                setVerificationStatus('success'); // Re-using success state to show details
+                // But we need a sub-state or flag to know we haven't granted access yet.
+                // Let's use a new state or just check a property on orderDetails?
+                // Ideally, we add a state `isAccessGranted`.
+                // For minimally invasive change, let's attach a flag to orderDetails.
+                setOrderDetails({ ...data.order, isAccessGranted: false });
+                setMessage('🔍 INSPECT ITEMS & GRANT ACCESS');
+                toast('Scan Successful. Verify items then click Grant Access.', { icon: '🔍' });
+                isProcessing.current = false;
+                return;
+            }
+
             if (data.success) {
                 setVerificationStatus('success');
                 setMessage('✅ ACCESS GRANTED');
-                setOrderDetails(data.order);
-                toast.success('Order Verified! Now scan items to check contents.');
-                // DO NOT release lock here if we want to stop re-scans of the same exit pass immediately.
-                // The logical flow is: Scan Pass -> Success -> Verify Items -> Next Customer.
-                // If we release lock here, scanning the same QR again might re-trigger "Access Granted" animation?
-                // Actually, if status is 'success', handleScan calls handleItemVerify.
-                // So we SHOULD release lock here, but `handleScan` logic routing handles it.
-                // BUT, to prevent "double tap" effect on the exact same frame:
-                // We keep it locked for a moment or rely on status change?
-                // Let's release it so item scanning works.
+                setOrderDetails({ ...data.order, isAccessGranted: true });
+                toast.success('Order Verified! Access Granted.');
                 isProcessing.current = false;
             } else {
                 setVerificationStatus('failed');
@@ -85,15 +91,35 @@ export default function SecurityScan() {
         }
     };
 
+    const handleGrantAccess = async () => {
+        if (!orderDetails) return;
+
+        const toastId = toast.loading('Granting Access...');
+        try {
+            const res = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    qrCodeString: orderDetails.id, // Use ID as we have it now
+                    action: 'confirm_access'
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                toast.success('ACCESS GRANTED!', { id: toastId });
+                setOrderDetails(prev => ({ ...prev, isAccessGranted: true }));
+                setMessage('✅ ACCESS GRANTED');
+            } else {
+                toast.error(data.message || 'Failed to grant access', { id: toastId });
+            }
+        } catch (error) {
+            toast.error('Network Error', { id: toastId });
+        }
+    };
+
     const handleItemVerify = (barcode: string) => {
         if (!orderDetails || !orderDetails.items) return;
-
-        // Check if barcode exists in order items
-        // Note: Assuming item.product_id or we need to match barcode. 
-        // The order details might not have the barcode directly if strictly from order table unless we joined it.
-        // However, in our system, let's check standard logic.
-        // If `items` structure has barcode, great. If not, we might need to match by name or fetch product.
-        // For now, let's assume `items` contains the product info or we search by barcode if available.
 
         const foundItem = orderDetails.items.find((item: any) =>
             item.barcode === barcode || item.id === barcode // Check both just in case
@@ -133,7 +159,6 @@ export default function SecurityScan() {
         setVerifiedItems(new Set());
         setMeasuredWeight('');
         isProcessing.current = false; // Unlock scanner
-        // We don't need reload anymore, just state reset
     };
 
     // Weight Logic
@@ -178,9 +203,8 @@ export default function SecurityScan() {
         const totalAmount = parseFloat(order.total_amount || order.totalAmount || 0);
         const itemCount = order.items?.length || 0;
 
-        // High Risk: Expensive order or random check (simulated randomness based on order ID last char)
-        // In real app, randomness should be backend driven or strictly seeded
-        const isRandomCheck = order.id && order.id.charCodeAt(order.id.length - 1) % 10 === 0; // 10% chance
+        // High Risk based on amount or random check
+        const isRandomCheck = order.id && order.id.charCodeAt(order.id.length - 1) % 10 === 0;
 
         if (totalAmount >= 5000 || isRandomCheck) {
             return {
@@ -195,9 +219,7 @@ export default function SecurityScan() {
 
         // Medium Risk
         if (totalAmount > 1000 || itemCount > 5) {
-            // Find heaviest or most expensive item for spot check
             const spotCheckItem = order.items.reduce((prev: any, current: any) => (current.price > prev.price ? current : prev), order.items[0]);
-
             return {
                 level: 'MEDIUM',
                 color: 'yellow',
@@ -252,6 +274,7 @@ export default function SecurityScan() {
             toast.error('Network Error', { id: toastId });
         }
     };
+
 
     return (
         <div className={`min-h-screen flex flex-col items-center p-4 transition-colors duration-500 ${verificationStatus === 'success' ? 'bg-green-50' :
@@ -364,17 +387,40 @@ export default function SecurityScan() {
                     {/* SUCCESS / FAILED RESULT */}
                     {(verificationStatus === 'success' || verificationStatus === 'failed') && (
                         <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-indigo-600 animate-fadeIn">
-                            <div className={`flex items-center gap-4 mb-6 pb-6 border-b ${verificationStatus === 'success' ? 'bg-green-50 p-4 rounded-lg' : 'bg-red-50 p-4 rounded-lg'}`}>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${verificationStatus === 'success' ? 'bg-green-200 text-green-700' : 'bg-red-200 text-red-700'}`}>
-                                    {verificationStatus === 'success' ? '✓' : '✖'}
+                            <div className={`flex items-center gap-4 mb-6 pb-6 border-b ${verificationStatus === 'failed' ? 'bg-red-50 p-4 rounded-lg' :
+                                orderDetails?.isAccessGranted ? 'bg-green-50 p-4 rounded-lg' :
+                                    'bg-yellow-50 p-4 rounded-lg'
+                                }`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${verificationStatus === 'failed' ? 'bg-red-200 text-red-700' :
+                                    orderDetails?.isAccessGranted ? 'bg-green-200 text-green-700' :
+                                        'bg-yellow-200 text-yellow-700'
+                                    }`}>
+                                    {verificationStatus === 'failed' ? '✖' : orderDetails?.isAccessGranted ? '✓' : '🔍'}
                                 </div>
                                 <div>
-                                    <h2 className={`text-2xl font-bold ${verificationStatus === 'success' ? 'text-green-800' : 'text-red-800'}`}>
-                                        {verificationStatus === 'success' ? 'Access Granted' : 'Access Denied'}
+                                    <h2 className={`text-2xl font-bold ${verificationStatus === 'failed' ? 'text-red-800' :
+                                        orderDetails?.isAccessGranted ? 'text-green-800' :
+                                            'text-yellow-800'
+                                        }`}>
+                                        {message}
                                     </h2>
-                                    <p className="text-sm font-medium opacity-80">{message}</p>
+                                    {!orderDetails?.isAccessGranted && verificationStatus !== 'failed' && (
+                                        <p className="text-sm font-medium opacity-80 mt-1">
+                                            Verify items below, then click Grant Access.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
+
+                            {/* GRANT ACCESS BUTTON */}
+                            {orderDetails && !orderDetails.isAccessGranted && verificationStatus === 'success' && (
+                                <button
+                                    onClick={handleGrantAccess}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-4 rounded-xl shadow-xl mb-6 transform transition hover:scale-[1.02] active:scale-95 animate-bounce-in"
+                                >
+                                    ✅ GRANT ACCESS / OPEN GATE
+                                </button>
+                            )}
 
                             {orderDetails && (
                                 <div className="space-y-6">
@@ -455,7 +501,7 @@ export default function SecurityScan() {
                                                         <span className="text-lg">{isVerified ? '✅' : '📦'}</span>
                                                         <div>
                                                             <p className={`font-medium ${isVerified ? 'text-green-800' : 'text-gray-800'}`}>{item.name}</p>
-                                                            <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                                                            <p className="text-xs text-gray-500">Qty: {item.quantity} • <span className="font-bold">₹{item.price}</span></p>
                                                         </div>
                                                     </div>
                                                     {isVerified && <span className="text-xs font-bold text-green-600 px-2 py-1 bg-green-100 rounded">OK</span>}
