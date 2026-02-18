@@ -108,7 +108,7 @@ export default function SecurityScan() {
 
             if (data.success) {
                 toast.success('ACCESS GRANTED!', { id: toastId });
-                setOrderDetails(prev => ({ ...prev, isAccessGranted: true }));
+                setOrderDetails((prev: any) => ({ ...prev, isAccessGranted: true }));
                 setMessage('✅ ACCESS GRANTED');
             } else {
                 toast.error(data.message || 'Failed to grant access', { id: toastId });
