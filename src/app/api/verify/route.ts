@@ -135,21 +135,32 @@ export async function POST(req: NextRequest) {
             try { items = JSON.parse(items); } catch (e) { items = []; }
         }
 
-        // Calculate Total Expected Weight
+        // Calculate Total Expected Weight and Enhance Items with Images
         let totalExpectedWeight = 0;
+        let enhancedItems = items;
+
         if (Array.isArray(items) && items.length > 0) {
             const productIds = items.map((item: any) => item.product_id || item.id);
             const { data: products } = await supabase
                 .from('products')
-                .select('id, weight')
+                .select('id, weight, image_url')
                 .in('id', productIds);
-            const productWeightMap = new Map();
-            products?.forEach((p: any) => productWeightMap.set(p.id, p.weight));
-            totalExpectedWeight = items.reduce((sum: number, item: any) => {
+
+            const productMap = new Map();
+            products?.forEach((p: any) => productMap.set(p.id, p));
+
+            enhancedItems = items.map((item: any) => {
                 const pid = item.product_id || item.id;
-                const weight = productWeightMap.get(pid) || item.weight || 0;
-                return sum + (weight * (item.quantity || 1));
-            }, 0);
+                const product = productMap.get(pid);
+                const weight = product?.weight || item.weight || 0;
+                totalExpectedWeight += (weight * (item.quantity || 1));
+
+                return {
+                    ...item,
+                    weight: weight,
+                    image_url: product?.image_url || null
+                };
+            });
         }
 
         return NextResponse.json({
@@ -160,7 +171,7 @@ export async function POST(req: NextRequest) {
                 id: order.id,
                 totalAmount: order.total_amount,
                 totalExpectedWeight: totalExpectedWeight,
-                items: order.items
+                items: enhancedItems
             }
         });
 

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ScanBarcode, ShieldCheck, Zap, ShoppingBag, ArrowRight } from 'lucide-react';
 import LiveFeed from '@/components/LiveFeed';
@@ -11,6 +12,19 @@ export default function Home() {
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.5 }
   };
+
+  const [offers, setOffers] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/offers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setOffers(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to load offers', err));
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-400 via-blue-500 to-teal-400 font-sans text-white overflow-hidden relative">
@@ -175,6 +189,55 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </section>
+
+        {/* Exclusive Offers Section */}
+        <section className="py-12">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="mb-8"
+          >
+            <h2 className="text-3xl font-bold mb-2">Today's Exclusive Offers 🏷️</h2>
+            <p className="text-blue-100">Grab these deals before they are gone!</p>
+          </motion.div>
+
+          {offers.length === 0 ? (
+            <div className="text-center p-8 bg-white/5 rounded-2xl border border-white/10 text-blue-200">
+              No active offers at the moment. Check back soon!
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {offers.map((offer: any, idx: number) => (
+                <motion.div
+                  key={offer.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/20 p-6 rounded-2xl hover:border-white/40 transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-bl-xl shadow-lg">
+                    LIMITED TIME
+                  </div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="bg-white/20 p-3 rounded-xl">
+                      <Zap className="w-6 h-6 text-yellow-300" />
+                    </div>
+                    <span className="text-2xl font-bold text-yellow-300">{offer.discount} OFF</span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">{offer.title}</h3>
+                  <p className="text-blue-100/80 text-sm mb-4">{offer.description}</p>
+                  {offer.code && (
+                    <div className="bg-black/30 rounded-lg p-3 flex justify-between items-center border border-white/10 border-dashed">
+                      <span className="text-xs text-gray-400 uppercase tracking-widest">Use Code</span>
+                      <span className="font-mono font-bold text-yellow-300 tracking-wider text-lg">{offer.code}</span>
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Featured Products Preview */}

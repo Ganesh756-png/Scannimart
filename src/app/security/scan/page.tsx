@@ -203,17 +203,20 @@ export default function SecurityScan() {
         const totalAmount = parseFloat(order.total_amount || order.totalAmount || 0);
         const itemCount = order.items?.length || 0;
 
-        // High Risk based on amount or random check
-        const isRandomCheck = order.id && order.id.charCodeAt(order.id.length - 1) % 10 === 0;
+        // 🎲 RANDOM AUDIT "SPLASH" (1 in 5 chance for demo purposes, 1 in 20 real world)
+        // We use a deterministic hash of the ID + current minute to keep it consistent during a session but "random" enough.
+        // Or simpler: just use the random flag if we want it to persist.
+        // Let's use the ID char code logic but make it more frequent for demo.
+        const isRandomCheck = order.id && (order.id.charCodeAt(order.id.length - 1) % 5 === 0);
 
         if (totalAmount >= 5000 || isRandomCheck) {
             return {
                 level: 'HIGH',
                 color: 'red',
                 bg: 'bg-red-100',
-                text: 'text-red-800',
-                border: 'border-red-200',
-                advice: '⚠️ FULL SCAN REQUIRED due to high value or random check.'
+                text: 'text-red-900',
+                border: 'border-red-400',
+                advice: isRandomCheck ? '🚨 RANDOM SECURITY AUDIT SELECTED! CHECK ALL ITEMS.' : '⚠️ HIGH VALUE ORDER. FULL SCAN REQUIRED.'
             };
         }
 
@@ -521,10 +524,30 @@ export default function SecurityScan() {
                                                         }`}
                                                 >
                                                     <div className="flex items-center gap-3">
-                                                        <span className="text-lg">{isVerified ? '✅' : '📦'}</span>
+                                                        {item.image_url ? (
+                                                            <div className="w-16 h-16 shrink-0 relative">
+                                                                <img
+                                                                    src={item.image_url}
+                                                                    alt={item.name}
+                                                                    className="w-full h-full object-cover rounded-md border border-gray-200"
+                                                                />
+                                                                {isVerified && (
+                                                                    <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center border-2 border-white text-xs">
+                                                                        ✓
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="w-16 h-16 shrink-0 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center text-4xl">
+                                                                {isVerified ? '✅' : '📦'}
+                                                            </div>
+                                                        )}
                                                         <div>
-                                                            <p className={`font-medium ${isVerified ? 'text-green-800' : 'text-gray-800'}`}>{item.name}</p>
-                                                            <p className="text-xs text-gray-500">Qty: {item.quantity} • <span className="font-bold">₹{item.price}</span></p>
+                                                            <p className={`font-bold text-lg ${isVerified ? 'text-green-800' : 'text-gray-900'}`}>{item.name}</p>
+                                                            <p className="text-sm text-gray-500 font-mono">
+                                                                <span className="font-bold text-black">{item.quantity}x</span> • ₹{item.price}
+                                                                {item.weight > 0 && <span className="text-xs text-gray-400 ml-2">({item.weight}g ea)</span>}
+                                                            </p>
                                                         </div>
                                                     </div>
                                                     {isVerified && <span className="text-xs font-bold text-green-600 px-2 py-1 bg-green-100 rounded">OK</span>}

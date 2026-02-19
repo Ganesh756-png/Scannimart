@@ -14,11 +14,12 @@ interface Product {
     barcode: string;
     stock: number;
     weight: number;
+    image_url?: string;
 }
 
 export default function AdminDashboard() {
     const [products, setProducts] = useState<Product[]>([]);
-    const [newProduct, setNewProduct] = useState({ name: '', price: '', barcode: '', stock: '', weight: '' });
+    const [newProduct, setNewProduct] = useState({ name: '', price: '', barcode: '', stock: '', weight: '', image_url: '' });
     const [showScanner, setShowScanner] = useState(false);
     const [loading, setLoading] = useState(false);
     const [salesData, setSalesData] = useState([]);
@@ -75,7 +76,7 @@ export default function AdminDashboard() {
             const data = await res.json();
 
             if (data.success) {
-                setNewProduct({ name: '', price: '', barcode: '', stock: '', weight: '' });
+                setNewProduct({ name: '', price: '', barcode: '', stock: '', weight: '', image_url: '' });
                 fetchProducts();
                 toast.success('Product added successfully!');
             } else {
@@ -119,7 +120,8 @@ export default function AdminDashboard() {
                     setNewProduct(prev => ({
                         ...prev,
                         name: p.product_name || p.generic_name || prev.name,
-                        weight: weight || prev.weight
+                        weight: weight || prev.weight,
+                        image_url: p.image_url || prev.image_url
                     }));
                     toast.success('Product info found!', { id: toastId });
                 } else {
@@ -144,6 +146,12 @@ export default function AdminDashboard() {
                         className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow-md transition-colors flex items-center gap-2"
                     >
                         <span>📦</span> Manage Inventory
+                    </a>
+                    <a
+                        href="/admin/offers"
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold shadow-md transition-colors flex items-center gap-2"
+                    >
+                        <span>🏷️</span> Manage Offers
                     </a>
                     <button
                         onClick={async () => {
@@ -260,6 +268,17 @@ export default function AdminDashboard() {
                         </div>
 
                         <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL (Optional)</label>
+                            <input
+                                type="url"
+                                placeholder="https://example.com/product-image.jpg"
+                                className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-0 transition-all outline-none bg-gray-50 focus:bg-white"
+                                value={newProduct.image_url}
+                                onChange={e => setNewProduct({ ...newProduct, image_url: e.target.value })}
+                            />
+                        </div>
+
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Barcode</label>
                             <input
                                 type="text"
@@ -319,6 +338,7 @@ export default function AdminDashboard() {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                                     <tr>
+                                        <th className="p-4 font-semibold text-center">Img</th>
                                         <th className="p-4 font-semibold">Name</th>
                                         <th className="p-4 font-semibold">Price</th>
                                         <th className="p-4 font-semibold">Weight</th>
@@ -336,6 +356,13 @@ export default function AdminDashboard() {
                                     ) : (
                                         products.map((p) => (
                                             <tr key={p.id} className="hover:bg-indigo-50 transition-colors group">
+                                                <td className="p-4">
+                                                    {p.image_url ? (
+                                                        <img src={p.image_url} alt={p.name} className="w-10 h-10 object-cover rounded-md border border-gray-200" />
+                                                    ) : (
+                                                        <div className="w-10 h-10 bg-gray-100 rounded-md border border-gray-200 flex items-center justify-center text-gray-300 text-xs">No Img</div>
+                                                    )}
+                                                </td>
                                                 <td className="p-4 font-medium text-gray-900 group-hover:text-indigo-700">
                                                     {p.name}
                                                 </td>
