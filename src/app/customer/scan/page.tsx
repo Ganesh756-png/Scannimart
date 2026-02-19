@@ -195,10 +195,72 @@ export default function CustomerScan() {
         handleProductFetch(randomCode);
     };
 
+    // 🤖 SMART RECOMMENDATIONS ENGINE (DEMO)
+    // Maps Scanned Barcode -> Recommended Product
+    const RECOMMENDATIONS: Record<string, any> = {
+        '8901058000472': { // Maggi
+            barcode: '5449000000996',
+            name: 'Coca-Cola',
+            price: 40,
+            image: '🥤', // Emoji for now, or URL if we had it
+            reason: 'Best Combo! 🍜 + 🥤'
+        },
+        '9780545010221': { // Book
+            barcode: '8901058000472',
+            name: 'Maggi Noodles',
+            price: 12,
+            image: '🍜',
+            reason: 'Late night study snack?'
+        },
+        '5449000000996': { // Coke
+            barcode: '9780545010221',
+            name: 'Harry Potter Book',
+            price: 500,
+            image: '📚',
+            reason: 'Relax and read while you drink!'
+        }
+    };
+
+    const [recommendation, setRecommendation] = useState<any>(null);
+
+    const checkRecommendation = (product: any) => {
+        // Check by Barcode
+        const rec = RECOMMENDATIONS[product.barcode];
+        if (rec) {
+            setRecommendation(rec);
+            // Play a subtle sound?
+            return true;
+        }
+        return false;
+    };
+
+    const addRecommendation = () => {
+        if (!recommendation) return;
+
+        // Create a product object compatible with addToCart
+        const product = {
+            id: recommendation.barcode, // Use barcode as ID for demo continuity
+            name: recommendation.name,
+            price: recommendation.price,
+            barcode: recommendation.barcode
+        };
+
+        addToCart(product, 1);
+        toast.success(`Added ${product.name} to cart!`, { icon: '🤖' });
+        setRecommendation(null);
+        // Restart scanner after short delay
+        setTimeout(startScanner, 500);
+    };
+
+    const skipRecommendation = () => {
+        setRecommendation(null);
+        setTimeout(startScanner, 500);
+    };
+
     const confirmAddToCart = () => {
         if (!scannedProduct) return;
 
-        // If has variants but none selected (shouldn't happen due to default, but safe check)
+        // If has variants but none selected
         if (scannedProduct.variants && !selectedVariant) {
             toast.error("Please select a variant");
             return;
@@ -206,12 +268,20 @@ export default function CustomerScan() {
 
         addToCart(scannedProduct, quantity, selectedVariant);
         toast.success(`Added ${quantity} x ${scannedProduct.name}`);
+
+        // CHECK FOR RECOMMENDATION
+        const hasRec = checkRecommendation(scannedProduct);
+
         setScannedProduct(null);
         setSelectedVariant(null);
         setQuantity(1);
         setManualBarcode('');
-        // Restart scanner
-        setTimeout(startScanner, 500);
+
+        // Only restart scanner if NO recommendation showed up
+        // If recommendation showed, we wait for user action (Add/Skip)
+        if (!hasRec) {
+            setTimeout(startScanner, 500);
+        }
     };
 
     const cancelScan = () => {
@@ -227,8 +297,13 @@ export default function CustomerScan() {
             // Unique key depends on product ID AND variant name (if any)
             const variantKey = variant ? variant.name : 'default';
 
+            // Ensure product ID is used correctly. 
+            // NOTE: For recommendations, we used barcode as ID. 
+            // In a real app, you'd fetch the real ID.
+            const pid = product.id || product.barcode;
+
             const existingItem = prevCart.find((item) =>
-                item.product === product.id &&
+                item.product === pid &&
                 ((!item.variant && !variant) || (item.variant?.name === variant?.name))
             );
 
@@ -238,12 +313,12 @@ export default function CustomerScan() {
 
             if (existingItem) {
                 newCart = prevCart.map((item) =>
-                    (item.product === product.id && ((!item.variant && !variant) || (item.variant?.name === variant?.name)))
+                    (item.product === pid && ((!item.variant && !variant) || (item.variant?.name === variant?.name)))
                         ? { ...item, quantity: item.quantity + qty } : item
                 );
             } else {
                 newCart = [...prevCart, {
-                    product: product.id,
+                    product: pid,
                     name: name,
                     price: price,
                     quantity: qty,
@@ -258,17 +333,125 @@ export default function CustomerScan() {
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => Math.max(1, q - 1));
 
+    // 💰 SMART BUDGET TRACKER (NEW)
+    const [budget, setBudget] = useState<number | null>(null);
+    const [showBudgetInput, setShowBudgetInput] = useState(false);
+    const [tempBudget, setTempBudget] = useState('');
+
+    const handleSetBudget = (e: React.FormEvent) => {
+        e.preventDefault();
+        const b = parseFloat(tempBudget);
+        if (b > 0) {
+            setBudget(b);
+            setShowBudgetInput(false);
+            toast.success(`Budget set to ₹${b}`, { icon: '💰' });
+        } else {
+            toast.error('Please enter a valid amount');
+        }
+    };
+
+    const clearBudget = () => {
+        setBudget(null);
+        setTempBudget('');
+        toast('Budget cleared', { icon: '🗑️' });
+    };
+
+    const currentTotal = cart.reduce((a, b) => a + (b.price * b.quantity), 0);
+    const budgetProgress = budget ? Math.min((currentTotal / budget) * 100, 100) : 0;
+    const isOverBudget = budget ? currentTotal > budget : false;
+    const isNearBudget = budget ? (currentTotal / budget) > 0.8 : false;
+
+    // Budget Alert Effect
+    useEffect(() => {
+        if (budget && currentTotal > budget) {
+            toast.error(`⚠️ Budget Exceeded by ₹${currentTotal - budget}!`, { id: 'budget-alert', duration: 3000 });
+        } else if (budget && (currentTotal / budget) > 0.9) {
+            toast('⚠️ You are 90% of your budget!', { icon: '💸', id: 'budget-warning' });
+        }
+    }, [currentTotal, budget]);
+
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4">
             <h1 className="text-2xl font-bold mb-4 text-blue-900 flex items-center gap-2">
                 <span className="text-3xl">📱</span> Scan & Shop
             </h1>
 
+            {/* 💰 BUDGET BAR UI */}
+            <div className="w-full max-w-md mb-6">
+                {!budget ? (
+                    !showBudgetInput ? (
+                        <button
+                            onClick={() => setShowBudgetInput(true)}
+                            className="w-full bg-white border border-gray-200 text-gray-600 py-3 rounded-xl font-semibold shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition"
+                        >
+                            <span>💰</span> Set a Spending Budget
+                        </button>
+                    ) : (
+                        <form onSubmit={handleSetBudget} className="flex gap-2 animate-fade-in-down">
+                            <input
+                                type="number"
+                                placeholder="Enter Limit (e.g. 500)"
+                                className="flex-1 p-3 rounded-xl border-2 border-indigo-100 focus:border-indigo-500 outline-none"
+                                value={tempBudget}
+                                onChange={(e) => setTempBudget(e.target.value)}
+                                autoFocus
+                            />
+                            <button
+                                type="submit"
+                                className="bg-indigo-600 text-white px-4 rounded-xl font-bold"
+                            >
+                                Set
+                            </button>
+                            <button
+                                onClick={() => setShowBudgetInput(false)}
+                                type="button"
+                                className="text-gray-400 px-2"
+                            >
+                                ✕
+                            </button>
+                        </form>
+                    )
+                ) : (
+                    <div className={`bg-white p-4 rounded-xl shadow-md border-2 transition-colors ${isOverBudget ? 'border-red-200 bg-red-50' : 'border-indigo-50'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                            <div>
+                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Budget</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className={`text-xl font-black ${isOverBudget ? 'text-red-600' : 'text-gray-800'}`}>
+                                        ₹{currentTotal}
+                                    </span>
+                                    <span className="text-gray-400 font-medium">/ ₹{budget}</span>
+                                </div>
+                            </div>
+                            <button onClick={clearBudget} className="text-gray-400 hover:text-red-500 text-xs bg-gray-100 px-2 py-1 rounded">
+                                Clear
+                            </button>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-500 ease-out ${isOverBudget ? 'bg-red-500 animate-pulse' :
+                                        isNearBudget ? 'bg-yellow-400' : 'bg-green-500'
+                                    }`}
+                                style={{ width: `${budgetProgress}%` }}
+                            ></div>
+                        </div>
+
+                        {isOverBudget && (
+                            <p className="text-xs text-red-600 font-bold mt-2 text-center animate-bounce">
+                                🚨 You've exceeded your budget!
+                            </p>
+                        )}
+                    </div>
+                )}
+            </div>
+
             {/* SCANNER / INPUT AREA */}
             <div className="w-full max-w-md bg-white p-4 rounded-xl shadow-lg mb-6 relative min-h-[350px] flex flex-col items-center">
 
                 {/* 1. Camera Region (Hidden when product found or not scanning) */}
-                {!scannedProduct && (
+                {!scannedProduct && !recommendation && (
                     <div className="relative w-full flex flex-col items-center">
                         <QRScannerArea isScanning={isScanning} />
 
@@ -370,6 +553,39 @@ export default function CustomerScan() {
                         </div>
                     </div>
                 )}
+
+                {/* 3. 🤖 SMART RECOMMENDATION MODAL */}
+                {recommendation && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-purple-700 z-40 flex flex-col items-center justify-center p-6 text-center animate-bounce-in rounded-xl text-white">
+                        <div className="text-6xl mb-4 animate-pulse">
+                            {recommendation.image}
+                        </div>
+                        <h3 className="text-yellow-300 font-bold tracking-widest text-xs uppercase mb-2">AI Suggestion</h3>
+                        <h2 className="text-2xl font-extrabold mb-1">{recommendation.name}</h2>
+                        <p className="text-indigo-200 text-sm mb-6 px-4 italic">"{recommendation.reason}"</p>
+
+                        <div className="bg-white/10 rounded-lg p-4 mb-6 w-full border border-white/20">
+                            <p className="text-sm text-indigo-100">Special Price</p>
+                            <p className="text-3xl font-black text-white">₹{recommendation.price}</p>
+                        </div>
+
+                        <div className="flex gap-3 w-full">
+                            <button
+                                onClick={skipRecommendation}
+                                className="flex-1 py-3 px-4 rounded-xl border border-white/30 text-indigo-100 font-bold hover:bg-white/10 transition"
+                            >
+                                No Thanks
+                            </button>
+                            <button
+                                onClick={addRecommendation}
+                                className="flex-1 py-3 px-4 rounded-xl bg-yellow-400 text-yellow-900 font-extrabold hover:bg-yellow-300 shadow-xl transition transform hover:scale-105"
+                            >
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                )}
+
             </div>
 
             {/* Error Message */}
@@ -381,7 +597,7 @@ export default function CustomerScan() {
 
             {/* Control Buttons (Retry / Simulate) */}
             <div className="flex gap-4 mb-6">
-                {!isScanning && !scannedProduct && (
+                {!isScanning && !scannedProduct && !recommendation && (
                     <button
                         onClick={startScanner}
                         className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 font-medium transition flex items-center gap-2"

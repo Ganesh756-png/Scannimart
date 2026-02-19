@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { toast } from 'react-hot-toast';
+
+// Simple Scanner Component for Cart
+const CartScannerArea = ({ isScanning }: { isScanning: boolean }) => (
+    <div id="cart-qr-reader" className={`w-full h-[250px] bg-black rounded-lg overflow-hidden ${!isScanning ? 'hidden' : 'block'}`}></div>
+);
 
 export default function CartPage() {
     const [cart, setCart] = useState<any[]>([]);
     const [processing, setProcessing] = useState(false);
     const router = useRouter();
+
+    // 🛡️ AUDIT STATE
+    const [auditActive, setAuditActive] = useState(false);
+    const [auditItem, setAuditItem] = useState<any>(null);
+    const auditScannerRef = useRef<Html5Qrcode | null>(null);
 
     useEffect(() => {
         const savedCart = localStorage.getItem('cart');
@@ -28,6 +40,13 @@ export default function CartPage() {
                 setCart([]);
             }
         }
+
+        return () => {
+            // Cleanup scanner
+            if (auditScannerRef.current?.isScanning) {
+                auditScannerRef.current.stop().catch(console.error);
+            }
+        };
     }, []);
 
     const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -36,7 +55,84 @@ export default function CartPage() {
 
     const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'CASH'>('UPI');
 
-    const handleCheckout = async () => {
+    const startAuditScanner = async () => {
+        try {
+            // Give DOM time to render
+            await new Promise(r => setTimeout(r, 100));
+
+            if (!auditScannerRef.current) {
+                auditScannerRef.current = new Html5Qrcode("cart-qr-reader", {
+                    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8, Html5QrcodeSupportedFormats.UPC_A],
+                    verbose: false
+                });
+            }
+
+            if (!auditScannerRef.current.isScanning) {
+                await auditScannerRef.current.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => verifyAuditScan(decodedText),
+                    () => { }
+                );
+            }
+        } catch (err) {
+            console.error("Audit Scanner Error", err);
+            toast.error("Camera failed. Please use manual verification (Demo).");
+        }
+    };
+
+    const verifyAuditScan = (code: string) => {
+        if (!auditItem) return;
+
+        // Check loosely against known IDs/Barcodes
+        // In real app, we check against `auditItem.product` (ID) or `auditItem.barcode`
+        // For demo, we might need to be flexible if we don't have barcode in cart item
+        // But `scan/page.tsx` saves `product: id` and maybe we can find it.
+        // Assuming the ID stored IS the barcode for demo items like Maggi.
+
+        if (code === auditItem.product || code === auditItem.barcode || code === auditItem.id) {
+            toast.success("✅ Verification Successful!");
+            stopAuditScanner();
+            setAuditActive(false);
+            processPayment(); // Proceed!
+        } else {
+            // Rate limit toasts?
+            toast.error("❌ Wrong item! Please scan " + auditItem.name);
+        }
+    };
+
+    // Manual Override for Demo if Camera fails
+    const manualVerify = () => {
+        toast.success("✅ Manual Verification (Dev Bypass)");
+        stopAuditScanner();
+        setAuditActive(false);
+        processPayment();
+    };
+
+    const stopAuditScanner = async () => {
+        if (auditScannerRef.current?.isScanning) {
+            await auditScannerRef.current.stop();
+        }
+    };
+
+    const initiateCheckout = () => {
+        const totalQty = cart.reduce((a, b) => a + b.quantity, 0);
+
+        // 🎲 AUDIT TRIGGER LOGIC
+        // Rule: If > 10 items OR 30% Random Chance
+        const shouldAudit = totalQty > 10 || Math.random() < 0.3;
+
+        if (shouldAudit && cart.length > 0) {
+            const randomItem = cart[Math.floor(Math.random() * cart.length)];
+            setAuditItem(randomItem);
+            setAuditActive(true);
+            setTimeout(startAuditScanner, 500);
+        } else {
+            processPayment();
+        }
+    };
+
+    const processPayment = async () => {
         setProcessing(true);
 
         try {
@@ -97,6 +193,38 @@ export default function CartPage() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4">
             <h1 className="text-3xl font-bold mb-6 text-gray-800">Checkout</h1>
+
+            {/* 🛡️ AUDIT MODAL OVERLAY */}
+            {auditActive && auditItem && (
+                <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
+                    <div className="bg-white w-full max-w-md rounded-2xl p-6 text-center space-y-4">
+                        <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto text-3xl animate-pulse">
+                            🛡️
+                        </div>
+                        <h2 className="text-2xl font-bold text-gray-900">Security Check</h2>
+                        <p className="text-gray-600">
+                            Random audit selected. Please rescan this item to verify your cart:
+                        </p>
+
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <p className="font-bold text-lg text-blue-900">{auditItem.name}</p>
+                            <p className="text-sm text-blue-600">Qty: {auditItem.quantity}</p>
+                        </div>
+
+                        {/* Scanner */}
+                        <div className="relative rounded-xl overflow-hidden border-2 border-gray-300">
+                            <CartScannerArea isScanning={auditActive} />
+                            <div className="absolute inset-0 border-2 border-blue-500/50 animate-pulse pointer-events-none"></div>
+                        </div>
+
+                        <p className="text-xs text-gray-400">Align barcode within the frame</p>
+
+                        <button onClick={manualVerify} className="text-xs text-gray-300 underline mt-4 hover:text-gray-500">
+                            Camera not working? Skip (Dev)
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
                 {cart.length === 0 ? (
@@ -160,7 +288,7 @@ export default function CartPage() {
                         </div>
 
                         <button
-                            onClick={handleCheckout}
+                            onClick={initiateCheckout}
                             disabled={processing}
                             className={`w-full mt-8 py-4 rounded-xl text-white font-bold text-lg shadow-md transition transform active:scale-95 ${processing ? 'bg-gray-400 cursor-not-allowed' :
                                 paymentMethod === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
