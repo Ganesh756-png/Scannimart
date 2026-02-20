@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { toast } from 'react-hot-toast';
+import { Trash2, Plus, Minus } from 'lucide-react';
 
 // Simple Scanner Component for Cart
 const CartScannerArea = ({ isScanning }: { isScanning: boolean }) => (
@@ -188,6 +189,17 @@ export default function CartPage() {
         );
         setCart(newCart);
         localStorage.setItem('cart', JSON.stringify(newCart));
+        toast.success('Item removed');
+    };
+
+    const updateCartQty = (productId: string, variant: any, newQty: number) => {
+        const newCart = cart.map(item =>
+            (item.product === productId && ((!item.variant && !variant) || (item.variant?.name === variant?.name)))
+                ? { ...item, quantity: newQty }
+                : item
+        );
+        setCart(newCart);
+        localStorage.setItem('cart', JSON.stringify(newCart));
     };
 
     return (
@@ -234,16 +246,65 @@ export default function CartPage() {
                     </div>
                 ) : (
                     <>
-                        <div className="mb-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-800">Items ({cart.reduce((a, b) => a + b.quantity, 0)})</h2>
+                            <button
+                                onClick={() => {
+                                    if (confirm('Are you sure you want to clear the cart?')) {
+                                        setCart([]);
+                                        localStorage.removeItem('cart');
+                                        toast.success('Cart cleared');
+                                    }
+                                }}
+                                className="text-red-500 text-sm hover:underline flex items-center gap-1"
+                            >
+                                <Trash2 size={14} /> Clear Cart
+                            </button>
+                        </div>
+
+                        <div className="mb-6 space-y-4">
                             {cart.map((item) => (
-                                <div key={item.product + (item.variant?.name || '')} className="flex justify-between items-center border-b py-3">
-                                    <div>
-                                        <p className="font-semibold text-lg">{item.name}</p>
-                                        <p className="text-gray-500 text-sm">Qty: {item.quantity} x ₹{item.price}</p>
+                                <div key={item.product + (item.variant?.name || '')} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 shadow-sm">
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-gray-900">{item.name}</p>
+                                        <p className="text-gray-500 text-xs">₹{item.price} per unit</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold">₹{item.price * item.quantity}</span>
-                                        <button onClick={() => removeFromCart(item.product, item.variant)} className="text-red-500 text-sm">Remove</button>
+
+                                    <div className="flex items-center gap-4">
+                                        {/* Quantity Controls */}
+                                        <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+                                            <button
+                                                onClick={() => {
+                                                    const newQty = item.quantity - 1;
+                                                    if (newQty > 0) {
+                                                        updateCartQty(item.product, item.variant, newQty);
+                                                    } else {
+                                                        removeFromCart(item.product, item.variant);
+                                                    }
+                                                }}
+                                                className="px-2 py-1 hover:bg-gray-100 text-gray-600"
+                                            >
+                                                <Minus size={14} />
+                                            </button>
+                                            <span className="px-2 text-sm font-bold w-6 text-center">{item.quantity}</span>
+                                            <button
+                                                onClick={() => updateCartQty(item.product, item.variant, item.quantity + 1)}
+                                                className="px-2 py-1 hover:bg-gray-100 text-blue-600"
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        </div>
+
+                                        <div className="flex flex-col items-end min-w-[60px]">
+                                            <span className="font-bold text-gray-800">₹{(item.price * item.quantity).toFixed(2)}</span>
+                                            <button
+                                                onClick={() => removeFromCart(item.product, item.variant)}
+                                                className="text-red-400 hover:text-red-600 mt-1 transition-colors p-1"
+                                                aria-label="Remove item"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
