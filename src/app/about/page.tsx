@@ -49,6 +49,43 @@ export default function AboutPage() {
                     </div>
                 </div>
 
+                {/* Team Section */}
+                <div className="pt-16 mt-16 border-t border-gray-200">
+                    <div className="text-center mb-12">
+                        <h3 className="text-3xl font-extrabold text-gray-900">Meet the Dream Team</h3>
+                        <p className="mt-4 text-lg text-gray-500">The minds behind the Smart Shopping System</p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-12 lg:grid-cols-3 lg:gap-8">
+                        {/* Ganesh Thakur */}
+                        <div className="text-center group">
+                            <div className="mx-auto h-40 w-40 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-5xl font-bold shadow-lg transform group-hover:scale-105 transition-transform duration-300">
+                                GT
+                            </div>
+                            <h4 className="mt-6 text-xl font-bold text-gray-900">Ganesh Thakur</h4>
+                            <p className="text-md font-medium text-indigo-600 mb-2">Founder & Developer</p>
+                            <p className="text-sm text-gray-500 px-4">Visionary behind the core architecture and user experience.</p>
+                        </div>
+                        {/* Govind Sawant */}
+                        <div className="text-center group">
+                            <div className="mx-auto h-40 w-40 rounded-full bg-gradient-to-tr from-purple-500 to-pink-600 flex items-center justify-center text-white text-5xl font-bold shadow-lg transform group-hover:scale-105 transition-transform duration-300">
+                                GS
+                            </div>
+                            <h4 className="mt-6 text-xl font-bold text-gray-900">Govind Sawant</h4>
+                            <p className="text-md font-medium text-purple-600 mb-2">Co-Founder & Developer</p>
+                            <p className="text-sm text-gray-500 px-4">Leading the database integration and real-time scanning systems.</p>
+                        </div>
+                        {/* Omkar Parab */}
+                        <div className="text-center group">
+                            <div className="mx-auto h-40 w-40 rounded-full bg-gradient-to-tr from-teal-400 to-emerald-600 flex items-center justify-center text-white text-5xl font-bold shadow-lg transform group-hover:scale-105 transition-transform duration-300">
+                                OP
+                            </div>
+                            <h4 className="mt-6 text-xl font-bold text-gray-900">Omkar Parab</h4>
+                            <p className="text-md font-medium text-emerald-600 mb-2">Manager & Coordinator</p>
+                            <p className="text-sm text-gray-500 px-4">Ensuring smooth project execution and seamless team collaboration.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div className="mt-20 text-center">
                     <h2 className="text-3xl font-extrabold text-gray-900 mb-8">Ready to get started?</h2>
                     <div className="flex justify-center gap-4">
