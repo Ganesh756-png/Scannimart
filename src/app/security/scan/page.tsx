@@ -417,12 +417,24 @@ export default function SecurityScan() {
 
                             {/* GRANT ACCESS BUTTON */}
                             {orderDetails && !orderDetails.isAccessGranted && verificationStatus === 'success' && (
-                                <button
-                                    onClick={handleGrantAccess}
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-4 rounded-xl shadow-xl mb-6 transform transition hover:scale-[1.02] active:scale-95 animate-bounce-in"
-                                >
-                                    ✅ GRANT ACCESS / OPEN GATE
-                                </button>
+                                <div className="space-y-4 mb-6">
+                                    <button
+                                        onClick={handleGrantAccess}
+                                        className="w-full bg-green-600 hover:bg-green-700 text-white text-xl font-bold py-4 rounded-xl shadow-xl transform transition hover:scale-[1.02] active:scale-95 animate-bounce-in"
+                                    >
+                                        ✅ GRANT ACCESS / OPEN GATE
+                                    </button>
+
+                                    <button
+                                        onClick={() => {
+                                            sessionStorage.setItem('security_current_order', JSON.stringify(orderDetails));
+                                            window.location.href = '/security/trolley';
+                                        }}
+                                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-lg font-bold py-3 text-center rounded-xl shadow-md border-2 border-indigo-300/30 flex items-center justify-center gap-2 transition-transform transform hover:scale-[1.02]"
+                                    >
+                                        <span>✨</span> AI TROLLEY VERIFICATION
+                                    </button>
+                                </div>
                             )}
 
                             {orderDetails && (

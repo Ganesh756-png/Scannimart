@@ -5,6 +5,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { Trash2, Plus, Minus } from 'lucide-react';
 
 // Isolated Scanner Component to prevent React re-renders from messing with DOM
 const QRScannerArea = memo(({ isScanning }: { isScanning: boolean }) => {
@@ -333,6 +334,30 @@ export default function CustomerScan() {
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => Math.max(1, q - 1));
 
+    const removeFromCart = (productObj: any) => {
+        setCart((prevCart) => {
+            const newCart = prevCart.filter(item =>
+                !(item.product === productObj.product &&
+                    ((!item.variant && !productObj.variant) || (item.variant?.name === productObj.variant?.name)))
+            );
+            localStorage.setItem('cart', JSON.stringify(newCart));
+            toast.success('Removed from Cart');
+            return newCart;
+        });
+    };
+
+    const updateCartQty = (productObj: any, newQty: number) => {
+        setCart((prevCart) => {
+            const newCart = prevCart.map(item =>
+                (item.product === productObj.product && ((!item.variant && !productObj.variant) || (item.variant?.name === productObj.variant?.name)))
+                    ? { ...item, quantity: newQty }
+                    : item
+            );
+            localStorage.setItem('cart', JSON.stringify(newCart));
+            return newCart;
+        });
+    };
+
     // 💰 SMART BUDGET TRACKER (NEW)
     const [budget, setBudget] = useState<number | null>(null);
     const [showBudgetInput, setShowBudgetInput] = useState(false);
@@ -372,9 +397,15 @@ export default function CustomerScan() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4">
-            <h1 className="text-2xl font-bold mb-4 text-blue-900 flex items-center gap-2">
-                <span className="text-3xl">📱</span> Scan & Shop
-            </h1>
+            <div className="flex flex-col items-center w-full max-w-md mb-4">
+                <h1 className="text-2xl font-bold mb-4 text-blue-900 flex items-center gap-2">
+                    <span className="text-3xl">📱</span> Scan & Shop
+                </h1>
+
+                <Link href="/customer/trolley" className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2 hover:opacity-90 transition-all transform hover:scale-[1.02]">
+                    <span className="text-xl">✨</span> Use AI Trolley Scanner
+                </Link>
+            </div>
 
             {/* 💰 BUDGET BAR UI */}
             <div className="w-full max-w-md mb-6">
@@ -432,7 +463,7 @@ export default function CustomerScan() {
                         <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-500 ease-out ${isOverBudget ? 'bg-red-500 animate-pulse' :
-                                        isNearBudget ? 'bg-yellow-400' : 'bg-green-500'
+                                    isNearBudget ? 'bg-yellow-400' : 'bg-green-500'
                                     }`}
                                 style={{ width: `${budgetProgress}%` }}
                             ></div>
@@ -633,11 +664,42 @@ export default function CustomerScan() {
                 <div className="max-h-40 overflow-y-auto mb-4 space-y-2">
                     {cart.map((item, index) => (
                         <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg text-sm">
-                            <div className="flex flex-col">
+                            <div className="flex flex-col flex-1">
                                 <span className="font-medium text-gray-900">{item.name}</span>
                                 <span className="text-xs text-gray-500">₹{item.price} x {item.quantity}</span>
                             </div>
-                            <span className="font-bold text-gray-800">₹{item.price * item.quantity}</span>
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mr-1">
+                                    <button
+                                        onClick={() => {
+                                            const newQty = item.quantity - 1;
+                                            if (newQty > 0) {
+                                                updateCartQty(item, newQty);
+                                            } else {
+                                                removeFromCart(item);
+                                            }
+                                        }}
+                                        className="px-2 py-1 hover:bg-gray-100 text-gray-600"
+                                    >
+                                        <Minus size={14} />
+                                    </button>
+                                    <span className="px-1 text-sm font-bold min-w-[20px] text-center">{item.quantity}</span>
+                                    <button
+                                        onClick={() => updateCartQty(item, item.quantity + 1)}
+                                        className="px-2 py-1 hover:bg-gray-100 text-blue-600"
+                                    >
+                                        <Plus size={14} />
+                                    </button>
+                                </div>
+                                <span className="font-bold text-gray-800">₹{item.price * item.quantity}</span>
+                                <button
+                                    onClick={() => removeFromCart(item)}
+                                    className="text-red-400 hover:text-red-600 p-1"
+                                    aria-label="Remove item"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
                         </div>
                     ))}
                     {cart.length === 0 && <p className="text-center text-gray-400 py-4 italic">Cart is empty. Scan something!</p>}
