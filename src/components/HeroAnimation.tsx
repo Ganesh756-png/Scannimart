@@ -3,26 +3,10 @@
 import { useState, useEffect } from 'react';
 
 export default function HeroAnimation({ onComplete }: { onComplete: () => void }) {
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(3);
 
     useEffect(() => {
-        // Timeline
-        const times = [
-            1000, // 0: Start
-            3000, // 1: "The Old Way..."
-            4500, // 2: "queue is DEAD" glitch
-            6000, // 3: Explosion / Reveal
-        ];
-
-        const t1 = setTimeout(() => setStep(1), times[0]);
-        const t2 = setTimeout(() => setStep(2), times[1]);
-        const t3 = setTimeout(() => setStep(3), times[2]);
-
-        return () => {
-            clearTimeout(t1);
-            clearTimeout(t2);
-            clearTimeout(t3);
-        };
+        // Timeline bypassed - jump straight to reveal
     }, []);
 
     return (
@@ -33,28 +17,6 @@ export default function HeroAnimation({ onComplete }: { onComplete: () => void }
                 <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-950 to-black animate-pulse"></div>
                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/20 via-black to-black"></div>
             </div>
-
-            {/* STEP 1: TYPING TEXT */}
-            {step === 1 && (
-                <h1 className="text-white text-3xl md:text-5xl font-mono animate-typing overflow-hidden whitespace-nowrap border-r-4 border-white pr-2">
-                    The old way of shopping...
-                </h1>
-            )}
-
-            {/* STEP 2: GLITCH TEXT */}
-            {step === 2 && (
-                <div className="relative">
-                    <h1 className="text-red-600 text-6xl md:text-9xl font-black animate-shake relative z-10 font-sans tracking-tighter">
-                        IS DEAD.
-                    </h1>
-                    <h1 className="text-cyan-400 text-6xl md:text-9xl font-black absolute top-1 left-1 opacity-60 animate-pulse mix-blend-screen tracking-tighter">
-                        IS DEAD.
-                    </h1>
-                    <h1 className="text-blue-600 text-6xl md:text-9xl font-black absolute -top-1 -left-1 opacity-60 animate-glitch mix-blend-screen tracking-tighter">
-                        IS DEAD.
-                    </h1>
-                </div>
-            )}
 
             {/* STEP 3: REVEAL */}
             {step >= 3 && (

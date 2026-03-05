@@ -17,8 +17,12 @@ export async function POST(req: NextRequest) {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Use gemini-1.5-flash for fastest vision
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+                responseMimeType: 'application/json'
+            }
+        });
 
         // Strip the data:image/...;base64, prefix if present
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -41,15 +45,12 @@ If an item in the image looks very similar to an item in the catalog, assume it 
 Estimate the quantity of each distinct item.
 
 Return a JSON array of objects, where each object has:
-{
-  "barcode": "the exact barcode from the catalog",
-  "name": "the product name from the catalog",
-  "quantity": estimated_integer_quantity,
-  "confidence": standard_confidence_score_0_to_1
-}
+barcode: "the exact barcode from the catalog"
+name: "the product name from the catalog"
+quantity: estimated_integer_quantity
+confidence: standard_confidence_score_0_to_1
 
-ONLY output the JSON code block, do not output any markdown formatting or extra text.
-If no items are detected or matched, return [].
+If no items are detected or matched, return an empty array [].
 `;
 
         const result = await model.generateContent([
@@ -64,15 +65,9 @@ If no items are detected or matched, return [].
 
         const responseText = result.response.text();
 
-        // Clean JSON string
-        let jsonStr = responseText.trim();
-        if (jsonStr.startsWith('```json')) jsonStr = jsonStr.substring(7);
-        if (jsonStr.startsWith('```')) jsonStr = jsonStr.substring(3);
-        if (jsonStr.endsWith('```')) jsonStr = jsonStr.substring(0, jsonStr.length - 3);
-
         let detectedItems = [];
         try {
-            detectedItems = JSON.parse(jsonStr.trim());
+            detectedItems = JSON.parse(responseText.trim());
         } catch (e) {
             console.error("Failed to parse Gemini JSON:", responseText);
             return NextResponse.json({ success: false, error: 'AI parsing failed' }, { status: 500 });

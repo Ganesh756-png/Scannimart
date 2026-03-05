@@ -55,12 +55,18 @@ export default function TrolleyScanPage() {
         if (videoRef.current && canvasRef.current) {
             const video = videoRef.current;
             const canvas = canvasRef.current;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+
+            // Scale down to max 800px width/height to prevent huge payloads
+            const maxDim = 800;
+            const scale = Math.min(maxDim / video.videoWidth, maxDim / video.videoHeight, 1);
+
+            canvas.width = video.videoWidth * scale;
+            canvas.height = video.videoHeight * scale;
             const ctx = canvas.getContext('2d');
+
             if (ctx) {
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                const imageDataUrl = canvas.toDataURL('image/jpeg', 0.7);
                 setCapturedImage(imageDataUrl);
                 stopCamera();
                 analyzeImage(imageDataUrl);
