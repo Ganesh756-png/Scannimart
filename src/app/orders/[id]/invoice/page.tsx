@@ -63,17 +63,17 @@ export default function InvoicePage() {
             >
                 {/* Header */}
                 <div
-                    className="p-8 mb-4 print:bg-white print:text-black print:border-b-2 print:border-black"
+                    className="p-4 sm:p-8 mb-4 print:bg-white print:text-black print:border-b-2 print:border-black"
                     style={{ backgroundColor: '#312e81', color: '#ffffff' }}
                 >
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div>
                             <h1 className="text-3xl font-bold mb-2">INVOICE</h1>
                             <p className="text-sm" style={{ opacity: 0.8 }}>Smart Shopping System</p>
                             <p className="text-sm" style={{ opacity: 0.8 }}>123 Tech Park, Innovation City</p>
                             <p className="text-sm" style={{ opacity: 0.8 }}>India, 400001</p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                             <p className="font-mono text-xl font-bold mb-1">#{order.readable_id || order.id.slice(0, 8)}</p>
                             <p className="text-sm" style={{ opacity: 0.8 }}>{new Date(order.created_at).toLocaleDateString()}</p>
                             <p className="text-sm" style={{ opacity: 0.8 }}>{new Date(order.created_at).toLocaleTimeString()}</p>
@@ -82,14 +82,14 @@ export default function InvoicePage() {
                 </div>
 
                 {/* Content */}
-                <div className="p-8">
+                <div className="p-4 sm:p-8">
                     {/* Customer / Payment Info */}
-                    <div className="flex justify-between mb-8 pb-4" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <div className="flex flex-col sm:flex-row justify-between mb-8 pb-4 gap-4" style={{ borderBottom: '1px solid #e5e7eb' }}>
                         <div>
                             <h3 className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af' }}>Payment Method</h3>
                             <p className="font-bold" style={{ color: '#1f2937' }}>{order.payment_method || 'UPI'}</p>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                             <h3 className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: '#9ca3af' }}>Order Status</h3>
                             <span
                                 className="inline-block px-2 py-1 rounded text-xs font-bold"
@@ -104,26 +104,28 @@ export default function InvoicePage() {
                     </div>
 
                     {/* Items Table */}
-                    <table className="w-full mb-8">
-                        <thead>
-                            <tr className="text-left" style={{ borderBottom: '2px solid #f3f4f6' }}>
-                                <th className="py-3 font-bold text-sm uppercase" style={{ color: '#4b5563' }}>Item</th>
-                                <th className="py-3 font-bold text-sm uppercase text-center" style={{ color: '#4b5563' }}>Qty</th>
-                                <th className="py-3 font-bold text-sm uppercase text-right" style={{ color: '#4b5563' }}>Price</th>
-                                <th className="py-3 font-bold text-sm uppercase text-right" style={{ color: '#4b5563' }}>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {order.items && order.items.map((item: any, index: number) => (
-                                <tr key={index} style={{ borderBottom: '1px solid #f9fafb' }}>
-                                    <td className="py-4 font-medium" style={{ color: '#1f2937' }}>{item.name}</td>
-                                    <td className="py-4 text-center" style={{ color: '#4b5563' }}>{item.quantity}</td>
-                                    <td className="py-4 text-right" style={{ color: '#4b5563' }}>₹{item.price}</td>
-                                    <td className="py-4 text-right font-bold" style={{ color: '#1f2937' }}>₹{(item.price * item.quantity).toFixed(2)}</td>
+                    <div className="overflow-x-auto w-full mb-8">
+                        <table className="w-full min-w-[500px]">
+                            <thead>
+                                <tr className="text-left" style={{ borderBottom: '2px solid #f3f4f6' }}>
+                                    <th className="py-3 font-bold text-sm uppercase" style={{ color: '#4b5563' }}>Item</th>
+                                    <th className="py-3 font-bold text-sm uppercase text-center" style={{ color: '#4b5563' }}>Qty</th>
+                                    <th className="py-3 font-bold text-sm uppercase text-right" style={{ color: '#4b5563' }}>Price</th>
+                                    <th className="py-3 font-bold text-sm uppercase text-right" style={{ color: '#4b5563' }}>Total</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {order.items && order.items.map((item: any, index: number) => (
+                                    <tr key={index} style={{ borderBottom: '1px solid #f9fafb' }}>
+                                        <td className="py-4 font-medium" style={{ color: '#1f2937' }}>{item.name}</td>
+                                        <td className="py-4 text-center" style={{ color: '#4b5563' }}>{item.quantity}</td>
+                                        <td className="py-4 text-right" style={{ color: '#4b5563' }}>₹{item.price}</td>
+                                        <td className="py-4 text-right font-bold" style={{ color: '#1f2937' }}>₹{(item.price * item.quantity).toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
 
                     {/* Totals */}
                     <div className="flex flex-col items-end pt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
@@ -139,13 +141,13 @@ export default function InvoicePage() {
                 {/* Footer / Buttons */}
                 <div
                     data-html2canvas-ignore="true"
-                    className="p-6 flex justify-between items-center print:hidden"
-                    style={{ backgroundColor: '#f9fafb' }}
+                    className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-center print:hidden border-t gap-4"
+                    style={{ backgroundColor: '#f9fafb', borderColor: '#e5e7eb' }}
                 >
-                    <Link href="/" className="text-sm font-bold flex items-center gap-1 transition-colors" style={{ color: '#6b7280' }}>
+                    <Link href="/" className="text-sm font-bold flex items-center gap-1 transition-colors w-full sm:w-auto" style={{ color: '#6b7280' }}>
                         <span>←</span> Back
                     </Link>
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
                         <button
                             onClick={async () => {
                                 const element = document.getElementById('invoice-content');
