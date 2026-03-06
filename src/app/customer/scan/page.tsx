@@ -342,6 +342,17 @@ export default function CustomerScan() {
             );
             localStorage.setItem('cart', JSON.stringify(newCart));
             toast.success('Removed from Cart');
+
+            // 🚀 TRACK REMOVAL EVENT
+            fetch('/api/analytics/track-removal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    productName: productObj.name,
+                    quantity: productObj.quantity
+                })
+            }).catch(e => console.error("Track removal error:", e));
+
             return newCart;
         });
     };
@@ -354,6 +365,19 @@ export default function CustomerScan() {
                     : item
             );
             localStorage.setItem('cart', JSON.stringify(newCart));
+
+            // 🚀 TRACK PARTIAL REMOVAL EVENT (Qty Decrease)
+            if (newQty < productObj.quantity) {
+                fetch('/api/analytics/track-removal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productName: productObj.name,
+                        quantity: productObj.quantity - newQty
+                    })
+                }).catch(e => console.error("Track removal error:", e));
+            }
+
             return newCart;
         });
     };

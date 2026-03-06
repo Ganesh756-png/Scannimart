@@ -164,6 +164,20 @@ export default function SecurityTrolleyScanPage() {
 
         if (flags.length > 0) {
             toast.error('FRAUD DETECTED: Trolley items do not match Bill!', { icon: '🚨', duration: 5000 });
+
+            // 🚀 TRACK DISCREPANCY EVENT
+            flags.forEach(flag => {
+                fetch('/api/analytics/track-discrepancy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: orderDetails.id,
+                        discrepancyScore: 100, // Hardcoded high confidence for demo 
+                        notes: `${flag.type}: ${flag.name} (Billed: ${flag.billed}, Found: ${flag.detected})`
+                    })
+                }).catch(e => console.error("Track discrepancy error:", e));
+            });
+
         } else {
             toast.success('VERIFIED: All detected items are on the bill.', { icon: '✅', duration: 4000 });
         }

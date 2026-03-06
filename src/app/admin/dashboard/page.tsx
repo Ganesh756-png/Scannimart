@@ -6,7 +6,10 @@ import { Toaster, toast } from 'react-hot-toast';
 import SalesEntryForm from '@/components/SalesEntryForm';
 import SalesChart from '@/components/SalesChart';
 import AiInsightCard from '@/components/AiInsightCard';
-
+import PeakHoursChart from '@/components/analytics/PeakHoursChart';
+import RemovedItemsList from '@/components/analytics/RemovedItemsList';
+import DiscrepancyCard from '@/components/analytics/DiscrepancyCard';
+import RestockAlerts from '@/components/analytics/RestockAlerts';
 interface Product {
     id: string;
     name: string;
@@ -23,11 +26,25 @@ export default function AdminDashboard() {
     const [showScanner, setShowScanner] = useState(false);
     const [loading, setLoading] = useState(false);
     const [salesData, setSalesData] = useState([]);
+    const [analyticsData, setAnalyticsData] = useState<any>(null);
 
     useEffect(() => {
         fetchProducts();
         fetchSales();
+        fetchAnalytics();
     }, []);
+
+    const fetchAnalytics = async () => {
+        try {
+            const res = await fetch('/api/analytics');
+            const data = await res.json();
+            if (data.success) {
+                setAnalyticsData(data.analytics);
+            }
+        } catch (error) {
+            console.error('Error fetching analytics:', error);
+        }
+    };
 
     const fetchSales = async () => {
         try {
@@ -442,10 +459,25 @@ export default function AdminDashboard() {
                     <div className="space-y-8">
                         <SalesEntryForm onSaleAdded={fetchSales} />
                         <AiInsightCard />
+                        {analyticsData && (
+                            <div className="space-y-8">
+                                <DiscrepancyCard
+                                    rate={analyticsData.discrepancyRate}
+                                    recent={analyticsData.recentDiscrepancies}
+                                />
+                                <RestockAlerts data={analyticsData.restockAlerts} />
+                            </div>
+                        )}
                     </div>
 
                     {/* Right Column: Charts */}
-                    <div className="lg:col-span-2">
+                    <div className="lg:col-span-2 space-y-8">
+                        {analyticsData && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <PeakHoursChart data={analyticsData.peakHours} />
+                                <RemovedItemsList data={analyticsData.removedItems} />
+                            </div>
+                        )}
                         <SalesChart data={salesData} />
 
                         {/* Recent Sales List */}
