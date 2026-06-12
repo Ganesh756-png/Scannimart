@@ -66,3 +66,42 @@ create policy "Public can insert sales" on sales for insert with check (true);
 alter table users enable row level security;
 create policy "Public users are viewable" on users for select using (true);
 create policy "Public can insert users" on users for insert with check (true);
+
+-- WHOLESALERS TABLE
+create table wholesalers (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  email text not null,
+  phone text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- WHOLESALER STOCKS TABLE
+create table wholesaler_stocks (
+  id uuid default uuid_generate_v4() primary key,
+  wholesaler_id uuid references wholesalers(id) on delete cascade not null,
+  product_name text not null,
+  price numeric not null,
+  stock integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- WHOLESALER MESSAGES TABLE
+create table wholesaler_messages (
+  id uuid default uuid_generate_v4() primary key,
+  wholesaler_id uuid references wholesalers(id) on delete cascade not null,
+  message_body text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table wholesalers enable row level security;
+create policy "Public wholesalers are viewable" on wholesalers for select using (true);
+create policy "Public can insert wholesalers" on wholesalers for insert with check (true);
+
+alter table wholesaler_stocks enable row level security;
+create policy "Public wholesaler stocks are viewable" on wholesaler_stocks for select using (true);
+create policy "Public can insert wholesaler stocks" on wholesaler_stocks for insert with check (true);
+
+alter table wholesaler_messages enable row level security;
+create policy "Public wholesaler messages are viewable" on wholesaler_messages for select using (true);
+create policy "Public can insert wholesaler messages" on wholesaler_messages for insert with check (true);

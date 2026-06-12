@@ -165,6 +165,12 @@ export default function AdminDashboard() {
                         <span>📦</span> Manage Inventory
                     </a>
                     <a
+                        href="/admin/wholesalers"
+                        className="bg-teal-600 hover:bg-teal-700 text-white px-6 py-2 rounded-lg font-semibold shadow-md transition-colors flex items-center gap-2"
+                    >
+                        <span>🏢</span> Manage Wholesalers
+                    </a>
+                    <a
                         href="/admin/offers"
                         className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-semibold shadow-md transition-colors flex items-center gap-2"
                     >
