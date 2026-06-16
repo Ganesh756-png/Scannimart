@@ -108,7 +108,7 @@ export default function AddItemPage() {
   const startVoiceListener = () => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as (new () => SpeechRecognition) | null;
+    const SpeechRecognition = ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) as any;
     if (!SpeechRecognition) {
       setVoiceMessage('Voice recognition is not supported in this browser.');
       return;
@@ -125,14 +125,14 @@ export default function AddItemPage() {
       setVoiceTranscript('');
     };
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       const speech = event.results[0][0].transcript;
       setVoiceTranscript(speech);
       applyVoiceCommand(speech);
       setVoiceMessage('Recognized text: ' + speech);
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       setVoiceMessage('Voice recognition error: ' + event.error);
       setListening(false);
     };

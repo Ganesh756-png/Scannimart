@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
                 {
                     items: orderItems, // JSONB
                     total_amount: totalAmount,
-                    status: (paymentMethod === 'CASH') ? 'pending_payment' : 'paid',
+                    status: 'pending_payment',
                     payment_method: paymentMethod || 'UPI',
                     qr_code_string: `ORDER-${Date.now()}-${Math.random().toString(36).substring(7)}`,
                     readable_id: Math.random().toString(36).substring(2, 8).toUpperCase(), // Short ID (e.g., X7Y2Z9)

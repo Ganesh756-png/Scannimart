@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import ExitGate from '@/components/ExitGate';
 
 export default function PassPage() {
     const [order, setOrder] = useState<any>(null);
@@ -106,14 +107,12 @@ export default function PassPage() {
 
     if (order.status === 'verified') {
         return (
-            <div className="min-h-screen bg-green-600 flex flex-col items-center justify-center p-8 text-center text-white animate-fade-in">
-                <div className="bg-white rounded-full p-6 mb-8 shadow-lg animate-bounce-slow">
-                    <svg className="w-24 h-24 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
-                    </svg>
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center text-white animate-fade-in">
+                <div className="mb-8 w-full max-w-sm">
+                    <ExitGate isOpen={true} />
                 </div>
-                <h1 className="text-4xl font-extrabold mb-4 drop-shadow-md">Access Granted</h1>
-                <p className="text-xl mb-12 opacity-90">Thank you for shopping with us!</p>
+                <h1 className="text-4xl font-black mb-2 bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400 drop-shadow-md uppercase tracking-wide">Access Granted</h1>
+                <p className="text-sm text-slate-400 mb-10">Thank you for shopping with us!</p>
 
                 <Link
                     href="/customer/scan"

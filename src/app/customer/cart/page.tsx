@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { toast } from 'react-hot-toast';
 import { Trash2, Plus, Minus } from 'lucide-react';
+import { playDiscrepancyBuzzer } from '@/utils/audio';
 
 // Simple Scanner Component for Cart
 const CartScannerArea = ({ isScanning }: { isScanning: boolean }) => (
@@ -77,7 +78,7 @@ export default function CartPage() {
                 );
             }
         } catch (err) {
-            console.error("Audit Scanner Error", err);
+            console.warn("Audit Scanner Error", err);
             toast.error("Camera failed. Please use manual verification (Demo).");
         }
     };
@@ -127,6 +128,7 @@ export default function CartPage() {
             const randomItem = cart[Math.floor(Math.random() * cart.length)];
             setAuditItem(randomItem);
             setAuditActive(true);
+            playDiscrepancyBuzzer();
             setTimeout(startAuditScanner, 500);
         } else {
             processPayment();
@@ -137,11 +139,6 @@ export default function CartPage() {
         setProcessing(true);
 
         try {
-            // Simulate Payment Delay only for UPI
-            if (paymentMethod === 'UPI') {
-                await new Promise(r => setTimeout(r, 1500));
-            }
-
             // Get Customer Details from Main Auth
             const userStr = localStorage.getItem('user');
             if (!userStr) {
@@ -168,10 +165,17 @@ export default function CartPage() {
             const data = await res.json();
 
             if (data.success) {
-                // Clear cart
-                localStorage.removeItem('cart');
-                localStorage.setItem('lastOrder', JSON.stringify(data.order));
-                router.push('/customer/pass');
+                if (paymentMethod === 'CASH') {
+                    // Clear cart for Cash payments immediately
+                    localStorage.removeItem('cart');
+                    localStorage.setItem('lastOrder', JSON.stringify(data.order));
+                    router.push('/customer/pass');
+                } else {
+                    // For UPI/Online payments, redirect to the secure payment gateway
+                    // Note: We keep the cart in localStorage until payment succeeds, in case they cancel/retry.
+                    localStorage.setItem('pendingOrder', JSON.stringify(data.order));
+                    router.push(`/payment-gateway?orderId=${data.order.id}`);
+                }
             } else {
                 alert('Checkout Failed: ' + data.message);
             }

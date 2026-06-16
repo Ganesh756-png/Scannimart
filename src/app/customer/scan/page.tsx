@@ -107,7 +107,7 @@ export default function CustomerScan() {
                 }
             );
         } catch (err: any) {
-            console.error("Error starting scanner", err);
+            console.warn("Error starting scanner", err);
             // Revert state if failed
             if (isMounted.current) setIsScanning(false);
 

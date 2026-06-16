@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from 'react-hot-toast';
-import Navbar from "@/components/Navbar";
-import ShopBot from "@/components/ShopBot";
+import AppLayoutWrapper from "@/components/AppLayoutWrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,14 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50 text-gray-900 min-h-screen flex flex-col`}
       >
         <Toaster position="top-right" />
-        <Navbar />
-        <main className="flex-grow">
-          {children}
-        </main>
-        <ShopBot />
-        <footer className="bg-white border-t py-6 text-center text-gray-500 text-sm">
-          &copy; {new Date().getFullYear()} Scannimart. All rights reserved.
-        </footer>
+        <AppLayoutWrapper>{children}</AppLayoutWrapper>
       </body>
     </html>
   );

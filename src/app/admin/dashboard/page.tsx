@@ -10,6 +10,9 @@ import PeakHoursChart from '@/components/analytics/PeakHoursChart';
 import RemovedItemsList from '@/components/analytics/RemovedItemsList';
 import DiscrepancyCard from '@/components/analytics/DiscrepancyCard';
 import RestockAlerts from '@/components/analytics/RestockAlerts';
+import { supabase } from '@/lib/supabase';
+import { playScanBeep, playSuccessChime, playDiscrepancyBuzzer } from '@/utils/audio';
+
 interface Product {
     id: string;
     name: string;
@@ -27,11 +30,139 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(false);
     const [salesData, setSalesData] = useState([]);
     const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
     useEffect(() => {
         fetchProducts();
         fetchSales();
         fetchAnalytics();
+    }, []);
+
+    useEffect(() => {
+        async function fetchInitialLogs() {
+            try {
+                const { data: orders } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+
+                const { data: discrepancies } = await supabase
+                    .from('discrepancies')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                const list: any[] = [];
+
+                orders?.forEach(o => {
+                    const time = new Date(o.created_at).toLocaleTimeString();
+                    if (o.status === 'verified') {
+                        list.push({
+                            id: `order-verified-${o.id}`,
+                            timestamp: time,
+                            type: 'security',
+                            message: `Order #${o.readable_id || o.id.slice(0, 8)} verified at checkpoint. Exit Gate opened.`
+                        });
+                    }
+                    if (o.status === 'paid' || o.status === 'verified') {
+                        list.push({
+                            id: `order-paid-${o.id}`,
+                            timestamp: time,
+                            type: 'billing',
+                            message: `Payment received: ₹${o.total_amount || 0} for Order #${o.readable_id || o.id.slice(0, 8)} (${o.payment_method || 'UPI'}).`
+                        });
+                    }
+                });
+
+                discrepancies?.forEach(d => {
+                    list.push({
+                        id: `disc-${d.id}`,
+                        timestamp: new Date(d.created_at).toLocaleTimeString(),
+                        type: 'critical',
+                        message: `Discrepancy alert on Order #${d.order_id?.slice(0, 8) || 'N/A'}: ${d.notes}`
+                    });
+                });
+
+                list.sort((a, b) => b.id.localeCompare(a.id));
+                setActivityLogs(list.slice(0, 15));
+            } catch (err) {
+                console.error("Error loading activity logs:", err);
+            }
+        }
+
+        fetchInitialLogs();
+
+        const ordersChannel = supabase
+            .channel('admin-orders-live')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'orders' },
+                (payload) => {
+                    const time = new Date().toLocaleTimeString();
+                    let newLog = null;
+
+                    if (payload.eventType === 'INSERT') {
+                        newLog = {
+                            id: `live-insert-${payload.new.id}`,
+                            timestamp: time,
+                            type: 'info',
+                            message: `New Order #${payload.new.readable_id || payload.new.id.slice(0, 8)} created by customer.`
+                        };
+                        playScanBeep();
+                    } else if (payload.eventType === 'UPDATE') {
+                        const oldStatus = payload.old?.status;
+                        const newStatus = payload.new?.status;
+
+                        if (newStatus === 'paid' && oldStatus !== 'paid') {
+                            newLog = {
+                                id: `live-paid-${payload.new.id}`,
+                                timestamp: time,
+                                type: 'billing',
+                                message: `💰 Payment of ₹${payload.new.total_amount} confirmed for Order #${payload.new.readable_id || payload.new.id.slice(0, 8)}!`
+                            };
+                            playSuccessChime();
+                        } else if (newStatus === 'verified' && oldStatus !== 'verified') {
+                            newLog = {
+                                id: `live-verified-${payload.new.id}`,
+                                timestamp: time,
+                                type: 'security',
+                                message: `✅ Order #${payload.new.readable_id || payload.new.id.slice(0, 8)} successfully cleared and gate opened.`
+                            };
+                            playSuccessChime();
+                        }
+                    }
+
+                    if (newLog) {
+                        setActivityLogs(prev => [newLog, ...prev].slice(0, 30));
+                    }
+                }
+            )
+            .subscribe();
+
+        const discrepanciesChannel = supabase
+            .channel('admin-discrepancies-live')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'discrepancies' },
+                (payload) => {
+                    const time = new Date().toLocaleTimeString();
+                    const newLog = {
+                        id: `live-disc-${payload.new.id}`,
+                        timestamp: time,
+                        type: 'critical',
+                        message: `🚨 SECURITY DISCREPANCY: Order #${payload.new.order_id?.slice(0, 8)}: ${payload.new.notes}`
+                    };
+                    playDiscrepancyBuzzer();
+                    setActivityLogs(prev => [newLog, ...prev].slice(0, 30));
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(ordersChannel);
+            supabase.removeChannel(discrepanciesChannel);
+        };
     }, []);
 
     const fetchAnalytics = async () => {
@@ -188,6 +319,45 @@ export default function AdminDashboard() {
                     >
                         Logout
                     </button>
+                </div>
+            </div>
+
+            {/* 📡 LIVE STORE MONITOR CONSOLE */}
+            <div className="mb-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                        <span className="relative flex h-3.5 w-3.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+                        </span>
+                        <h2 className="text-lg font-bold text-white tracking-wide">📡 Live Store Activity Monitor</h2>
+                    </div>
+                    <span className="text-[10px] font-mono bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-indigo-500/20">
+                        Real-time Node Connection
+                    </span>
+                </div>
+
+                <div className="bg-slate-950/70 border border-slate-900 rounded-xl p-4 max-h-[160px] overflow-y-auto custom-scrollbar space-y-2.5 font-mono text-xs text-slate-300">
+                    {activityLogs.length === 0 ? (
+                        <div className="text-center text-slate-600 py-6 italic animate-pulse">
+                            Listening to store transactions and exit checkpoint events...
+                        </div>
+                    ) : (
+                        activityLogs.map((log) => (
+                            <div key={log.id} className="flex items-start gap-3 border-b border-slate-800/40 pb-2 last:border-b-0 hover:bg-slate-900/10 px-1.5 py-1 rounded transition-colors animate-fade-in">
+                                <span className="text-slate-500 font-bold shrink-0">{log.timestamp}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider shrink-0 border ${
+                                    log.type === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                                    log.type === 'billing' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                    log.type === 'security' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' :
+                                    'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                }`}>
+                                    {log.type}
+                                </span>
+                                <span className="leading-relaxed text-slate-200">{log.message}</span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 
