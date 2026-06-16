@@ -60,6 +60,12 @@ export default function SecurityTrolleyScanPage() {
         return () => stopCamera();
     }, []);
 
+    useEffect(() => {
+        if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+        }
+    }, [stream]);
+
     const startCamera = async () => {
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -67,9 +73,6 @@ export default function SecurityTrolleyScanPage() {
             });
             setStream(mediaStream);
             setIsCameraActive(true);
-            if (videoRef.current) {
-                videoRef.current.srcObject = mediaStream;
-            }
         } catch (err) {
             console.warn("Could not start camera, falling back to upload/presets:", err);
             setIsCameraActive(false);
@@ -80,8 +83,8 @@ export default function SecurityTrolleyScanPage() {
         if (stream) {
             stream.getTracks().forEach(track => track.stop());
             setStream(null);
-            setIsCameraActive(false);
         }
+        setIsCameraActive(false);
     };
 
     const takePhoto = () => {
@@ -139,7 +142,9 @@ export default function SecurityTrolleyScanPage() {
         setFraudFlags([]);
         setShowResults(false);
         setChosenPreset('');
-        startCamera();
+        setTimeout(() => {
+            startCamera();
+        }, 100);
     };
 
     const analyzeImage = async (base64Image: string, preset?: string) => {
@@ -358,19 +363,24 @@ export default function SecurityTrolleyScanPage() {
                 {/* LEFT SIDE: SCANNER VIEWPORT (5 columns) */}
                 <div className="md:col-span-5 flex flex-col gap-4">
                     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl relative aspect-square md:aspect-auto md:flex-grow min-h-[300px]">
-                        {!capturedImage && isCameraActive && (
-                            <video
-                                ref={videoRef}
-                                autoPlay
-                                playsInline
-                                className="w-full h-full object-cover"
-                            />
-                        )}
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            className={`w-full h-full object-cover ${capturedImage || !isCameraActive ? 'hidden' : ''}`}
+                        />
                         {!capturedImage && !isCameraActive && (
                             <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center text-slate-500 p-6 text-center">
                                 <Camera className="w-16 h-16 text-slate-700 mb-2" />
                                 <span className="font-bold text-sm">Physical Camera Paused</span>
-                                <span className="text-xs text-slate-600 mt-1">Use Demo presets or upload an image file.</span>
+                                <span className="text-xs text-slate-600 mt-1 mb-4">Use Demo presets, upload an image file, or open camera manually.</span>
+                                <button
+                                    onClick={startCamera}
+                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow-lg shadow-indigo-900/20"
+                                >
+                                    <Camera className="w-3.5 h-3.5" />
+                                    <span>Start Camera</span>
+                                </button>
                             </div>
                         )}
                         {capturedImage && (
@@ -417,13 +427,21 @@ export default function SecurityTrolleyScanPage() {
                     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
                         {!capturedImage ? (
                             <div className="flex flex-col gap-3">
-                                {isCameraActive && (
+                                {isCameraActive ? (
                                     <button
                                         onClick={takePhoto}
                                         className="w-full bg-red-600 hover:bg-red-700 py-3.5 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 shadow-lg shadow-red-600/10 active:scale-95"
                                     >
                                         <Camera className="w-5 h-5" />
                                         <span>Capture Trolley Photo</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={startCamera}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-700 py-3.5 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-900/10 active:scale-95"
+                                    >
+                                        <Camera className="w-5 h-5" />
+                                        <span>Open Camera</span>
                                     </button>
                                 )}
 
